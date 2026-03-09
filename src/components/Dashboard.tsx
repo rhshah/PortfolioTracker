@@ -8,19 +8,22 @@ import { Transactions } from './Transactions';
 import { AIAssistant } from './AIAssistant';
 import { BenchmarkComparison } from './BenchmarkComparison';
 import { Analysis } from './Analysis';
+import { SettingsModal } from './SettingsModal';
 import { GoogleGenAI } from '@google/genai';
 import { useData } from '../context/DataContext';
 import { syncRealData } from '../services/financeApi';
 
+type SyncState = 'idle' | 'fetching' | 'analyzing';
+
 export function Dashboard() {
   const { holdingsData, etfMetrics, updateData } = useData();
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncState, setSyncState] = useState<SyncState>('idle');
   const [lastSynced, setLastSynced] = useState<Date | null>(new Date());
   const [analysisReport, setAnalysisReport] = useState<string | null>(null);
   const [analysisSummary, setAnalysisSummary] = useState<string | null>(null);
 
   const handleSync = async () => {
-    setIsSyncing(true);
+    setSyncState('fetching');
     try {
       // 1. Fetch real market data
       const { newHoldingsData, newPerformanceData } = await syncRealData(holdingsData);
@@ -31,8 +34,15 @@ export function Dashboard() {
         performanceData: newPerformanceData
       });
 
+      setSyncState('analyzing');
+
       // 2. Generate AI Analysis using the updated real data
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const apiKey = localStorage.getItem('GEMINI_API_KEY') || process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error('Gemini API key is missing. Please add it in Settings.');
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
       
       const prompt = `
 You are an expert financial analyst. Please analyze the following ETF portfolio based on current real-world micro and macroeconomic factors. 
@@ -77,14 +87,16 @@ Format the output in clean Markdown with clear headings for each ETF.
       }
       
       setLastSynced(new Date());
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating analysis:', error);
-      setAnalysisReport('An error occurred while generating the analysis. Please check your API key and try again.');
+      setAnalysisReport(`An error occurred: ${error.message || 'Please check your API key and try again.'}`);
       setAnalysisSummary(null);
     } finally {
-      setIsSyncing(false);
+      setSyncState('idle');
     }
   };
+
+  const isSyncing = syncState !== 'idle';
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
@@ -102,8 +114,9 @@ Format the output in clean Markdown with clear headings for each ETF.
             </div>
             <Button onClick={handleSync} disabled={isSyncing} variant="outline" className="gap-2">
               <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? 'Syncing...' : 'Sync Data'}
+              {syncState === 'idle' ? 'Sync Data' : syncState === 'fetching' ? 'Fetching Market Data...' : 'Generating AI Analysis...'}
             </Button>
+            <SettingsModal />
           </div>
         </div>
       </header>

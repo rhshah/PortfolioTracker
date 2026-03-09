@@ -1,27 +1,22 @@
 import { format, subYears, parseISO } from 'date-fns';
 
-// Use a CORS proxy to bypass Yahoo Finance restrictions on the client side
-const CORS_PROXY = 'https://corsproxy.io/?';
-
 export async function fetchETFData(symbol: string) {
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1y`;
-    const proxyUrl = `${CORS_PROXY}${encodeURIComponent(url)}`;
-    
-    const response = await fetch(proxyUrl);
-    if (!response.ok) throw new Error(`Failed to fetch data for ${symbol}`);
-    
+    const response = await fetch(`/api/finance/history?symbol=${symbol}`);
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(`Failed to fetch data for ${symbol}: ${errData.error || response.statusText || response.status}`);
+    }
     const data = await response.json();
-    const result = data.chart.result[0];
-    const timestamps = result.timestamp;
-    const closePrices = result.indicators.quote[0].close;
     
-    return timestamps.map((t: number, i: number) => ({
-      date: new Date(t * 1000).toISOString().split('T')[0],
-      price: closePrices[i]
-    })).filter((d: any) => d.price !== null);
+    // yahoo-finance2 historical returns an array of objects:
+    // { date: Date, open: number, high: number, low: number, close: number, adjClose: number, volume: number }
+    return data.map((d: any) => ({
+      date: new Date(d.date).toISOString().split('T')[0],
+      price: d.adjClose || d.close
+    })).filter((d: any) => d.price !== null && d.price !== undefined);
   } catch (error) {
-    console.error(`Error fetching ${symbol}:`, error);
+    console.error(`Backend fetch failed for ${symbol}:`, error);
     return [];
   }
 }
@@ -31,13 +26,17 @@ export async function syncRealData(currentHoldings: any[]) {
   const symbols = [...currentHoldings.map(h => h.symbol), 'SPY'];
   const fetchedData: Record<string, any[]> = {};
   
-  for (const symbol of symbols) {
+  const fetchPromises = symbols.map(async (symbol) => {
     fetchedData[symbol] = await fetchETFData(symbol);
-  }
+  });
+  
+  await Promise.all(fetchPromises);
   
   // 2. Align dates based on SPY (assuming it has the most complete trading days)
   const spyData = fetchedData['SPY'];
-  if (!spyData || spyData.length === 0) throw new Error("Failed to fetch benchmark data");
+  if (!spyData || spyData.length === 0) {
+    throw new Error("Failed to fetch market data from the backend API. Yahoo Finance might be temporarily unavailable.");
+  }
   
   const newPerformanceData = [];
   let currentPortfolioValue = 0;
