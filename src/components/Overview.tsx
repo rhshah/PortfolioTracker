@@ -20,17 +20,19 @@ export function Overview({ analysisSummary, isSyncing }: OverviewProps) {
   const percentageReturn = (totalGainLoss / totalPurchaseValue) * 100;
 
   const formattedPerformanceData = useMemo(() => {
+    const sortedData = [...performanceData].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
     if (timeframe === 'days') {
-      return performanceData.map(d => ({
+      return sortedData.map(d => ({
         ...d,
         displayDate: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       }));
     } else {
       // Group by month
       const monthlyData: Record<string, any> = {};
-      performanceData.forEach(d => {
+      sortedData.forEach(d => {
         const date = new Date(d.date);
-        const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         if (!monthlyData[monthKey]) {
           monthlyData[monthKey] = { ...d, displayDate: date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) };
         } else {
@@ -38,9 +40,9 @@ export function Overview({ analysisSummary, isSyncing }: OverviewProps) {
           monthlyData[monthKey] = { ...d, displayDate: date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) };
         }
       });
-      return Object.values(monthlyData);
+      return Object.keys(monthlyData).sort().map(key => monthlyData[key]);
     }
-  }, [timeframe]);
+  }, [timeframe, performanceData]);
 
   return (
     <div className="space-y-6">
@@ -140,6 +142,7 @@ export function Overview({ analysisSummary, isSyncing }: OverviewProps) {
                     tickLine={false}
                     tick={{ fill: '#64748b', fontSize: 12 }}
                     dy={10}
+                    minTickGap={15}
                   />
                   <YAxis 
                     domain={['dataMin - 10000', 'dataMax + 10000']} 

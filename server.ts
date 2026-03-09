@@ -1,6 +1,8 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
-import yahooFinance from "yahoo-finance2";
+import YahooFinance from "yahoo-finance2";
+
+const yahooFinance = new YahooFinance();
 
 async function startServer() {
   const app = express();
@@ -27,8 +29,8 @@ async function startServer() {
         queryOptions.period2 = new Date(period2 as string);
       }
       
-      const result = await yahooFinance.historical(symbol, queryOptions);
-      res.json(result);
+      const result = await yahooFinance.chart(symbol, queryOptions);
+      res.json(result.quotes);
     } catch (error: any) {
       console.error(`Error fetching history for ${req.query.symbol}:`, error);
       res.status(500).json({ error: error.message || "Failed to fetch data" });

@@ -52,20 +52,20 @@ export function BenchmarkComparison() {
   const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
   const formattedPerformanceData = useMemo(() => {
-    let baseData = performanceData;
+    let baseData = [...performanceData].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
     if (timeframe === 'months') {
       const monthlyData: Record<string, any> = {};
-      performanceData.forEach(d => {
+      baseData.forEach(d => {
         const date = new Date(d.date);
-        const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         if (!monthlyData[monthKey]) {
           monthlyData[monthKey] = { ...d };
         } else {
           monthlyData[monthKey] = { ...d };
         }
       });
-      baseData = Object.values(monthlyData);
+      baseData = Object.keys(monthlyData).sort().map(key => monthlyData[key]);
     }
 
     const initialPortfolioValue = baseData[0].value;
@@ -93,7 +93,7 @@ export function BenchmarkComparison() {
         displayDate,
       };
     });
-  }, [timeframe, chartType, selectedBenchmark]);
+  }, [timeframe, chartType, selectedBenchmark, performanceData]);
 
   // Generate mock data for individual ETF chart
   const etfChartData = useMemo(() => {
@@ -389,6 +389,7 @@ export function BenchmarkComparison() {
                     tickLine={false}
                     tick={{ fill: '#64748b', fontSize: 12 }}
                     dy={10}
+                    minTickGap={15}
                   />
                   <YAxis 
                     domain={['auto', 'auto']} 

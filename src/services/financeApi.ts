@@ -2,7 +2,7 @@ import { format, subYears, parseISO } from 'date-fns';
 
 export async function fetchETFData(symbol: string) {
   try {
-    const response = await fetch(`/api/finance/history?symbol=${symbol}`);
+    const response = await fetch(`/api/finance/history?symbol=${symbol}&period1=2026-02-09`);
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
       throw new Error(`Failed to fetch data for ${symbol}: ${errData.error || response.statusText || response.status}`);
@@ -14,7 +14,9 @@ export async function fetchETFData(symbol: string) {
     return data.map((d: any) => ({
       date: new Date(d.date).toISOString().split('T')[0],
       price: d.adjClose || d.close
-    })).filter((d: any) => d.price !== null && d.price !== undefined);
+    }))
+    .filter((d: any) => d.price !== null && d.price !== undefined)
+    .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
   } catch (error) {
     console.error(`Backend fetch failed for ${symbol}:`, error);
     return [];
