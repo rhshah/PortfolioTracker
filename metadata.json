@@ -1,0 +1,5 @@
+{
+  "name": "ETF Portfolio Analyzer",
+  "description": "A static application for monitoring and evaluating ETF portfolio performance with AI chat capabilities.",
+  "requestFramePermissions": []
+}
