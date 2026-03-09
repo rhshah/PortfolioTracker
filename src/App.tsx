@@ -4,7 +4,12 @@
  */
 
 import { Dashboard } from './components/Dashboard';
+import { DataProvider } from './context/DataContext';
 
 export default function App() {
-  return <Dashboard />;
+  return (
+    <DataProvider>
+      <Dashboard />
+    </DataProvider>
+  );
 }

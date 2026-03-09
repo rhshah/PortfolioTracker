@@ -1,24 +1,89 @@
 import React, { useState } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/Tabs';
 import { Button } from './ui/Button';
-import { RefreshCw, LayoutDashboard, List, History, Bot, BarChart2 } from 'lucide-react';
+import { RefreshCw, LayoutDashboard, List, History, Bot, BarChart2, Activity } from 'lucide-react';
 import { Overview } from './Overview';
 import { Holdings } from './Holdings';
 import { Transactions } from './Transactions';
 import { AIAssistant } from './AIAssistant';
 import { BenchmarkComparison } from './BenchmarkComparison';
+import { Analysis } from './Analysis';
+import { GoogleGenAI } from '@google/genai';
+import { useData } from '../context/DataContext';
+import { syncRealData } from '../services/financeApi';
 
 export function Dashboard() {
+  const { holdingsData, etfMetrics, updateData } = useData();
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(new Date());
+  const [analysisReport, setAnalysisReport] = useState<string | null>(null);
+  const [analysisSummary, setAnalysisSummary] = useState<string | null>(null);
 
-  const handleSync = () => {
+  const handleSync = async () => {
     setIsSyncing(true);
-    // Simulate network request
-    setTimeout(() => {
-      setIsSyncing(false);
+    try {
+      // 1. Fetch real market data
+      const { newHoldingsData, newPerformanceData } = await syncRealData(holdingsData);
+      
+      // Update global context with real data
+      updateData({
+        holdingsData: newHoldingsData,
+        performanceData: newPerformanceData
+      });
+
+      // 2. Generate AI Analysis using the updated real data
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      
+      const prompt = `
+You are an expert financial analyst. Please analyze the following ETF portfolio based on current real-world micro and macroeconomic factors. 
+
+For each ETF in the portfolio:
+1. Explain why it is performing the way it is recently.
+2. Identify whether its performance is primarily driven by market (systematic) risk or idiosyncratic (asset-specific) risk.
+3. Consider and mention its performance relative to its specified benchmark.
+
+Here is the updated real-time portfolio data:
+${JSON.stringify(newHoldingsData.map(h => ({
+  symbol: h.symbol,
+  description: h.description,
+  assetClass: h.assetClass,
+  benchmark: h.benchmark,
+  currentPrice: h.currentPrice,
+  totalGainLoss: h.totalGainLoss,
+  metrics: etfMetrics[h.symbol]
+})), null, 2)}
+
+Format the output in clean Markdown with clear headings for each ETF.
+`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: {
+          tools: [{ googleSearch: {} }],
+        }
+      });
+      
+      const reportText = response.text || 'Analysis could not be generated.';
+      setAnalysisReport(reportText);
+
+      if (reportText !== 'Analysis could not be generated.') {
+        const summaryPrompt = `Based on the following detailed ETF portfolio analysis, provide a concise 2-3 paragraph executive summary of the overall portfolio performance, key drivers, and main risks.\n\nAnalysis:\n${reportText}`;
+        const summaryResponse = await ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: summaryPrompt,
+        });
+        setAnalysisSummary(summaryResponse.text || 'Summary could not be generated.');
+      }
+      
       setLastSynced(new Date());
-    }, 1500);
+    } catch (error) {
+      console.error('Error generating analysis:', error);
+      setAnalysisReport('An error occurred while generating the analysis. Please check your API key and try again.');
+      setAnalysisSummary(null);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   return (
@@ -45,8 +110,8 @@ export function Dashboard() {
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <Tabs defaultValue="overview" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <TabsList className="bg-slate-200/50 p-1">
+          <div className="flex items-center justify-between overflow-x-auto pb-2">
+            <TabsList className="bg-slate-200/50 p-1 shrink-0">
               <TabsTrigger value="overview" className="gap-2">
                 <LayoutDashboard className="h-4 w-4" />
                 <span className="hidden sm:inline">Overview</span>
@@ -54,6 +119,10 @@ export function Dashboard() {
               <TabsTrigger value="benchmark" className="gap-2">
                 <BarChart2 className="h-4 w-4" />
                 <span className="hidden sm:inline">Benchmark</span>
+              </TabsTrigger>
+              <TabsTrigger value="analysis" className="gap-2">
+                <Activity className="h-4 w-4" />
+                <span className="hidden sm:inline">Analysis</span>
               </TabsTrigger>
               <TabsTrigger value="holdings" className="gap-2">
                 <List className="h-4 w-4" />
@@ -71,10 +140,13 @@ export function Dashboard() {
           </div>
 
           <TabsContent value="overview" className="space-y-6">
-            <Overview />
+            <Overview analysisSummary={analysisSummary} isSyncing={isSyncing} />
           </TabsContent>
           <TabsContent value="benchmark">
             <BenchmarkComparison />
+          </TabsContent>
+          <TabsContent value="analysis">
+            <Analysis report={analysisReport} isSyncing={isSyncing} />
           </TabsContent>
           <TabsContent value="holdings">
             <Holdings />

@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/
 import { Button } from './ui/Button';
 import { Send, Bot, User, Loader2 } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
-import { holdingsData, transactionsData } from '../data';
+import { transactionsData } from '../data';
+import { useData } from '../context/DataContext';
 import ReactMarkdown from 'react-markdown';
 
 interface Message {
@@ -13,6 +14,7 @@ interface Message {
 }
 
 export function AIAssistant() {
+  const { holdingsData } = useData();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',

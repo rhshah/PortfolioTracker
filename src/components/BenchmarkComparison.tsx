@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/Card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts';
-import { performanceData, benchmarks, metricsData, holdingsData, etfMetrics } from '../data';
-import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { useData } from '../context/DataContext';
+import { ArrowDownRight, ArrowUpRight, CheckCircle2 } from 'lucide-react';
 
 export function BenchmarkComparison() {
+  const { performanceData, benchmarks, metricsData, holdingsData, etfMetrics } = useData();
   const [selectedBenchmark, setSelectedBenchmark] = useState(benchmarks[0].id);
+  const [selectedETF, setSelectedETF] = useState<string | null>(null);
+  const [timeframe, setTimeframe] = useState<'days' | 'months'>('days');
+  const [chartType, setChartType] = useState<'value' | 'percentage'>('value');
 
   const portfolioMetrics = metricsData.portfolio;
   const benchmarkMetrics = metricsData[selectedBenchmark as keyof typeof metricsData];
@@ -18,10 +22,12 @@ export function BenchmarkComparison() {
       <div className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
         <span className="text-sm font-medium text-slate-600">{label}</span>
         <div className="flex items-center gap-6 text-sm">
-          <span className="w-20 text-right font-semibold text-slate-900">
+          <span className={`w-20 text-right font-semibold flex items-center justify-end gap-1 ${isPositive ? 'text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md' : 'text-slate-900'}`}>
+            {isPositive && <CheckCircle2 className="h-3 w-3 text-emerald-500" />}
             {portValue.toFixed(2)}{isPercentage ? '%' : ''}
           </span>
-          <span className="w-20 text-right text-slate-500">
+          <span className={`w-20 text-right flex items-center justify-end gap-1 ${!isPositive ? 'text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md font-semibold' : 'text-slate-500'}`}>
+            {!isPositive && <CheckCircle2 className="h-3 w-3 text-emerald-500" />}
             {benchValue.toFixed(2)}{isPercentage ? '%' : ''}
           </span>
           <span className={`w-20 text-right flex items-center justify-end ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
@@ -45,49 +51,152 @@ export function BenchmarkComparison() {
     
   const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
+  const formattedPerformanceData = useMemo(() => {
+    let baseData = performanceData;
+    
+    if (timeframe === 'months') {
+      const monthlyData: Record<string, any> = {};
+      performanceData.forEach(d => {
+        const date = new Date(d.date);
+        const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
+        if (!monthlyData[monthKey]) {
+          monthlyData[monthKey] = { ...d };
+        } else {
+          monthlyData[monthKey] = { ...d };
+        }
+      });
+      baseData = Object.values(monthlyData);
+    }
+
+    const initialPortfolioValue = baseData[0].value;
+    const initialBenchmarkValue = baseData[0][selectedBenchmark as keyof typeof baseData[0]] as number;
+
+    return baseData.map(d => {
+      const date = new Date(d.date);
+      const displayDate = timeframe === 'days' 
+        ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        : date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
+      const benchValue = d[selectedBenchmark as keyof typeof d] as number;
+
+      if (chartType === 'percentage') {
+        return {
+          ...d,
+          displayDate,
+          value: ((d.value - initialPortfolioValue) / initialPortfolioValue) * 100,
+          [selectedBenchmark]: ((benchValue - initialBenchmarkValue) / initialBenchmarkValue) * 100,
+        };
+      }
+
+      return {
+        ...d,
+        displayDate,
+      };
+    });
+  }, [timeframe, chartType, selectedBenchmark]);
+
+  // Generate mock data for individual ETF chart
+  const etfChartData = useMemo(() => {
+    if (!selectedETF) return [];
+    const holding = holdingsData.find(h => h.symbol === selectedETF);
+    if (!holding) return [];
+    
+    let baseValue = holding.purchasePrice;
+    let benchBaseValue = 100; // Normalized benchmark value
+    
+    return formattedPerformanceData.map((d, i) => {
+      // Add some random walk based on the ETF's alpha/beta
+      const metrics = etfMetrics[selectedETF];
+      const dailyReturn = (metrics.return1M / 100) / formattedPerformanceData.length;
+      const benchDailyReturn = (metrics.benchReturn1M / 100) / formattedPerformanceData.length;
+      
+      baseValue = baseValue * (1 + dailyReturn + (Math.random() * 0.01 - 0.005));
+      benchBaseValue = benchBaseValue * (1 + benchDailyReturn + (Math.random() * 0.01 - 0.005));
+      
+      return {
+        displayDate: d.displayDate,
+        [selectedETF]: baseValue,
+        [holding.benchmark]: benchBaseValue * (holding.purchasePrice / 100) // Scale benchmark to match starting price roughly
+      };
+    });
+  }, [selectedETF, formattedPerformanceData]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-900">Quantitative Analysis</h2>
-        <select
-          value={selectedBenchmark}
-          onChange={(e) => setSelectedBenchmark(e.target.value)}
-          className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-indigo-600"
-        >
-          {benchmarks.map((b) => (
-            <option key={b.id} value={b.id}>{b.name}</option>
-          ))}
-        </select>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center bg-slate-100 rounded-md p-1">
+            <button
+              onClick={() => setChartType('value')}
+              className={`px-3 py-1 text-sm rounded-sm transition-colors ${chartType === 'value' ? 'bg-white shadow-sm font-medium text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Value
+            </button>
+            <button
+              onClick={() => setChartType('percentage')}
+              className={`px-3 py-1 text-sm rounded-sm transition-colors ${chartType === 'percentage' ? 'bg-white shadow-sm font-medium text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Percentage
+            </button>
+          </div>
+          <div className="flex items-center bg-slate-100 rounded-md p-1">
+            <button
+              onClick={() => setTimeframe('days')}
+              className={`px-3 py-1 text-sm rounded-sm transition-colors ${timeframe === 'days' ? 'bg-white shadow-sm font-medium text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Days
+            </button>
+            <button
+              onClick={() => setTimeframe('months')}
+              className={`px-3 py-1 text-sm rounded-sm transition-colors ${timeframe === 'months' ? 'bg-white shadow-sm font-medium text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Months
+            </button>
+          </div>
+          <select
+            value={selectedBenchmark}
+            onChange={(e) => setSelectedBenchmark(e.target.value)}
+            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-indigo-600"
+          >
+            {benchmarks.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Overall Performance vs {selectedBenchmark}</CardTitle>
-          <CardDescription>Portfolio value compared to selected benchmark over the last month</CardDescription>
+          <CardDescription>Portfolio value compared to selected benchmark since inception</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-[400px] w-full mt-4">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={performanceData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+              <LineChart data={formattedPerformanceData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                 <XAxis 
-                  dataKey="date" 
+                  dataKey="displayDate" 
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: '#64748b', fontSize: 12 }}
                   dy={10}
                 />
                 <YAxis 
-                  domain={['dataMin - 10000', 'dataMax + 10000']} 
+                  domain={['auto', 'auto']} 
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: '#64748b', fontSize: 12 }}
-                  tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                  tickFormatter={(value) => chartType === 'percentage' ? `${value.toFixed(1)}%` : `$${(value / 1000).toFixed(0)}k`}
                   dx={-10}
                 />
                 <Tooltip 
                   contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  formatter={(value: number, name: string) => [`$${value.toLocaleString()}`, name === 'value' ? 'Portfolio' : name]}
+                  formatter={(value: number, name: string) => [
+                    chartType === 'percentage' ? `${value.toFixed(2)}%` : `$${value.toLocaleString()}`, 
+                    name === 'value' ? 'Portfolio' : name
+                  ]}
                   labelStyle={{ color: '#64748b', marginBottom: '4px' }}
                 />
                 <Legend verticalAlign="top" height={36} />
@@ -134,6 +243,7 @@ export function BenchmarkComparison() {
             <MetricRow label="Volatility (Ann.)" portValue={portfolioMetrics.volatility} benchValue={benchmarkMetrics.volatility} isPercentage inverseGood />
             <MetricRow label="Max Drawdown" portValue={portfolioMetrics.maxDrawdown} benchValue={benchmarkMetrics.maxDrawdown} isPercentage />
             <MetricRow label="Dividend Yield" portValue={portfolioMetrics.yield} benchValue={benchmarkMetrics.yield} isPercentage />
+            <MetricRow label="Correlation" portValue={portfolioMetrics.correlation} benchValue={benchmarkMetrics.correlation} />
           </CardContent>
         </Card>
 
@@ -153,6 +263,7 @@ export function BenchmarkComparison() {
             <MetricRow label="Sharpe Ratio" portValue={portfolioMetrics.sharpeRatio} benchValue={benchmarkMetrics.sharpeRatio} />
             <MetricRow label="Beta vs Market" portValue={portfolioMetrics.beta} benchValue={benchmarkMetrics.beta} inverseGood />
             <MetricRow label="Alpha (Ann.)" portValue={portfolioMetrics.alpha} benchValue={benchmarkMetrics.alpha} isPercentage />
+            <MetricRow label="Tracking Error" portValue={portfolioMetrics.trackingError} benchValue={benchmarkMetrics.trackingError} isPercentage inverseGood />
           </CardContent>
         </Card>
       </div>
@@ -204,7 +315,7 @@ export function BenchmarkComparison() {
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Individual ETF vs Benchmark</CardTitle>
-            <CardDescription>Micro-level comparison against specific category benchmarks</CardDescription>
+            <CardDescription>Click on an ETF to view its performance chart</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -218,6 +329,8 @@ export function BenchmarkComparison() {
                     <th className="px-4 py-3 font-medium text-right">Bench 1M</th>
                     <th className="px-4 py-3 font-medium text-right">Alpha</th>
                     <th className="px-4 py-3 font-medium text-right">Beta</th>
+                    <th className="px-4 py-3 font-medium text-right">Corr.</th>
+                    <th className="px-4 py-3 font-medium text-right">Trk. Err</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -226,9 +339,14 @@ export function BenchmarkComparison() {
                     if (!metrics) return null;
                     
                     const outperforming = metrics.return1M > metrics.benchReturn1M;
+                    const isSelected = selectedETF === holding.symbol;
                     
                     return (
-                      <tr key={holding.symbol} className="border-b border-slate-100 hover:bg-slate-50">
+                      <tr 
+                        key={holding.symbol} 
+                        onClick={() => setSelectedETF(isSelected ? null : holding.symbol)}
+                        className={`border-b border-slate-100 cursor-pointer transition-colors ${isSelected ? 'bg-indigo-50 hover:bg-indigo-100' : 'hover:bg-slate-50'}`}
+                      >
                         <td className="px-4 py-3 font-medium text-indigo-600">{holding.symbol}</td>
                         <td className="px-4 py-3">{holding.assetClass}</td>
                         <td className="px-4 py-3 text-slate-400">{holding.benchmark}</td>
@@ -238,10 +356,12 @@ export function BenchmarkComparison() {
                         <td className="px-4 py-3 text-right">
                           {metrics.benchReturn1M > 0 ? '+' : ''}{metrics.benchReturn1M.toFixed(2)}%
                         </td>
-                        <td className={`px-4 py-3 text-right ${outperforming ? 'text-emerald-600' : 'text-slate-600'}`}>
+                        <td className={`px-4 py-3 text-right ${outperforming ? 'text-emerald-600 font-medium' : 'text-slate-600'}`}>
                           {metrics.alpha > 0 ? '+' : ''}{metrics.alpha.toFixed(2)}
                         </td>
                         <td className="px-4 py-3 text-right">{metrics.beta.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-right">{metrics.correlation.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-right">{metrics.trackingError.toFixed(2)}%</td>
                       </tr>
                     )
                   })}
@@ -251,6 +371,66 @@ export function BenchmarkComparison() {
           </CardContent>
         </Card>
       </div>
+
+      {selectedETF && (
+        <Card className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <CardHeader>
+            <CardTitle>{selectedETF} vs {holdingsData.find(h => h.symbol === selectedETF)?.benchmark}</CardTitle>
+            <CardDescription>Performance comparison since transaction date</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px] w-full mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={etfChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis 
+                    dataKey="displayDate" 
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#64748b', fontSize: 12 }}
+                    dy={10}
+                  />
+                  <YAxis 
+                    domain={['auto', 'auto']} 
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#64748b', fontSize: 12 }}
+                    tickFormatter={(value) => `$${value.toFixed(0)}`}
+                    dx={-10}
+                  />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, name]}
+                    labelStyle={{ color: '#64748b', marginBottom: '4px' }}
+                  />
+                  <Legend verticalAlign="top" height={36} />
+                  <Line 
+                    type="monotone" 
+                    dataKey={selectedETF} 
+                    name={selectedETF}
+                    stroke="#6366f1" 
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey={holdingsData.find(h => h.symbol === selectedETF)?.benchmark || ''} 
+                    name={holdingsData.find(h => h.symbol === selectedETF)?.benchmark}
+                    stroke="#94a3b8" 
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                    dot={false}
+                    activeDot={{ r: 6, fill: '#94a3b8', stroke: '#fff', strokeWidth: 2 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
+
+

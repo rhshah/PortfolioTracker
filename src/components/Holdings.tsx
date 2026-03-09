@@ -1,8 +1,9 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
-import { holdingsData } from '../data';
+import { useData } from '../context/DataContext';
 
 export function Holdings() {
+  const { holdingsData } = useData();
   return (
     <Card>
       <CardHeader>
@@ -14,7 +15,7 @@ export function Holdings() {
             <thead className="text-xs text-slate-700 uppercase bg-slate-50 border-b border-slate-200">
               <tr>
                 <th scope="col" className="px-6 py-3 font-medium">Symbol</th>
-                <th scope="col" className="px-6 py-3 font-medium hidden md:table-cell">Description</th>
+                <th scope="col" className="px-6 py-3 font-medium">ETF Details</th>
                 <th scope="col" className="px-6 py-3 font-medium text-right">Current Price</th>
                 <th scope="col" className="px-6 py-3 font-medium text-right">Purchase Price</th>
                 <th scope="col" className="px-6 py-3 font-medium text-right">QTY</th>
@@ -30,7 +31,7 @@ export function Holdings() {
                     <td className="px-6 py-4 font-medium text-indigo-600 whitespace-nowrap">
                       {holding.symbol}
                     </td>
-                    <td className="px-6 py-4 hidden md:table-cell text-slate-600">
+                    <td className="px-6 py-4 text-slate-600">
                       {holding.description}
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -58,3 +59,4 @@ export function Holdings() {
     </Card>
   );
 }
+
