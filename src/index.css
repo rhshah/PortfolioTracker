@@ -1,2 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-indigo-50: #f5f7ff;
+  --color-indigo-100: #ebf0fe;
+  --color-indigo-200: #ced9fd;
+  --color-indigo-300: #a1b6fb;
+  --color-indigo-400: #6d8bf7;
+  --color-indigo-500: #4461f2;
+  --color-indigo-600: #2d41e5;
+  --color-indigo-700: #2532cb;
+  --color-indigo-800: #232aa5;
+  --color-indigo-900: #212883;
+  --color-indigo-950: #14174d;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+  }
+}
+
+.glass-card {
+  @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-sm;
+}
+
+.chart-tooltip {
+  @apply bg-slate-900 text-white p-3 rounded-lg shadow-xl border border-slate-700 text-xs;
+}

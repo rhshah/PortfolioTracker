@@ -1,6 +1,11 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import YahooFinance from "yahoo-finance2";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const yahooFinance = new YahooFinance();
 
@@ -21,12 +26,24 @@ async function startServer() {
         return res.status(400).json({ error: "Missing or invalid symbol" });
       }
 
+      const parseDate = (val: any) => {
+        if (!val) return null;
+        // If it's a numeric string (timestamp)
+        if (/^\d+$/.test(val)) {
+          const num = parseInt(val, 10);
+          // If it's in seconds (like Yahoo usually uses), convert to ms
+          // 10^12 is a safe threshold to distinguish seconds from ms
+          return new Date(num < 10000000000 ? num * 1000 : num);
+        }
+        return new Date(val);
+      };
+
       const queryOptions: any = {
-        period1: period1 ? new Date(period1 as string) : new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), // Default 1 year
+        period1: parseDate(period1) || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), // Default 1 year
       };
       
       if (period2) {
-        queryOptions.period2 = new Date(period2 as string);
+        queryOptions.period2 = parseDate(period2);
       }
       
       const result = await yahooFinance.chart(symbol, queryOptions);
@@ -46,6 +63,9 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     app.use(express.static("dist"));
+    app.get("*", (req, res) => {
+      res.sendFile(path.resolve(__dirname, "dist", "index.html"));
+    });
   }
 
   app.listen(PORT, "0.0.0.0", () => {

@@ -1,5 +1,5 @@
 {
-  "name": "ETF Portfolio Analyzer",
-  "description": "A static application for monitoring and evaluating ETF portfolio performance with AI chat capabilities.",
+  "name": "ETFPulse Portfolio Analyzer",
+  "description": "Advanced ETF portfolio monitoring and evaluation platform. Features real-time market data synchronization, AI-powered risk analysis using Gemini 3.1 Pro, and comprehensive benchmark comparisons.",
   "requestFramePermissions": []
 }

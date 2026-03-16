@@ -6,6 +6,7 @@ import { GoogleGenAI } from '@google/genai';
 import { transactionsData } from '../data';
 import { useData } from '../context/DataContext';
 import ReactMarkdown from 'react-markdown';
+import { DataSourceFooter } from './DataSourceFooter';
 
 interface Message {
   id: string;
@@ -38,9 +39,9 @@ export function AIAssistant() {
   const initChat = () => {
     if (chatRef.current) return chatRef.current;
     
-    const apiKey = localStorage.getItem('GEMINI_API_KEY') || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      throw new Error('Gemini API key is missing. Please add it in Settings.');
+      throw new Error('Gemini API key is missing.');
     }
 
     const ai = new GoogleGenAI({ apiKey });
@@ -185,6 +186,12 @@ export function AIAssistant() {
             <Send className="h-5 w-5" />
           </Button>
         </div>
+      </div>
+      <div className="px-4 pb-4">
+        <DataSourceFooter 
+          pageName="AI Portfolio Assistant" 
+          interpretation="The AI Assistant provides real-time answers to your portfolio questions. It has access to your current holdings and transaction history, allowing it to perform custom calculations, explain risk metrics, or summarize your asset allocation in plain English."
+        />
       </div>
     </Card>
   );
