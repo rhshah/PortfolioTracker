@@ -1,7 +1,8 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/Card';
 import ReactMarkdown from 'react-markdown';
-import { Activity, Loader2, Download, Bot } from 'lucide-react';
+import remarkGfm from 'remark-gfm';
+import { Activity, Loader2, Download, Bot, ExternalLink, FileText, ShieldAlert, Zap } from 'lucide-react';
 import { Button } from './ui/Button';
 import { DataSourceFooter } from './DataSourceFooter';
 
@@ -24,75 +25,110 @@ export function Analysis({ report, isAnalyzing }: AnalysisProps) {
     document.body.removeChild(link);
   };
 
+  // Extract links for citations
+  const citations = React.useMemo(() => {
+    if (!report) return [];
+    const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+    const matches = [...report.matchAll(linkRegex)];
+    return matches.map(m => ({ text: m[1], url: m[2] }));
+  }, [report]);
+
   return (
-    <Card className="min-h-[500px] border-slate-200 shadow-sm overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 bg-slate-50/50">
+    <div className="terminal-card min-h-[600px] flex flex-col">
+      <div className="p-8 border-b border-white/10 bg-white/[0.02] flex flex-row items-center justify-between">
         <div>
-          <CardTitle className="flex items-center gap-2 font-display">
-            <Bot className="h-5 w-5 text-indigo-600" />
-            AI Portfolio Insights
-          </CardTitle>
-          <CardDescription>
+          <div className="tech-label text-indigo-400 mb-1">Institutional Intelligence</div>
+          <h3 className="text-2xl font-bold font-display tracking-tight flex items-center gap-3">
+            <Bot className="h-6 w-6 text-indigo-400" />
+            PM Risk Briefing
+          </h3>
+          <p className="text-[10px] text-terminal-muted uppercase font-bold mt-1 tracking-widest">
             Deep-dive analysis powered by Gemini 3.1 Pro
-          </CardDescription>
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           {report && (
-            <Button variant="outline" size="sm" onClick={handleDownload} className="gap-2 rounded-full">
+            <Button variant="outline" size="sm" onClick={handleDownload} className="tech-label border-white/10 hover:bg-white/5 gap-2">
               <Download className="h-4 w-4" />
-              Export PDF
+              Export Markdown
             </Button>
           )}
         </div>
-      </CardHeader>
-      <CardContent className="p-8">
+      </div>
+      
+      <div className="p-8 flex-1">
         {isAnalyzing ? (
-          <div className="flex flex-col items-center justify-center h-[400px] text-slate-500 space-y-6">
+          <div className="flex flex-col items-center justify-center h-[400px] space-y-6">
             <div className="relative">
-              <div className="absolute inset-0 rounded-full bg-indigo-100 animate-ping opacity-20"></div>
-              <div className="relative h-16 w-16 rounded-full bg-indigo-50 flex items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+              <div className="absolute inset-0 rounded-full bg-indigo-500/20 animate-ping"></div>
+              <div className="relative h-20 w-20 rounded-full bg-indigo-600/10 flex items-center justify-center border border-indigo-500/30">
+                <Loader2 className="h-10 w-10 animate-spin text-indigo-400" />
               </div>
             </div>
             <div className="text-center space-y-2">
-              <h3 className="text-lg font-bold text-slate-900">Generating Intelligence...</h3>
-              <p className="max-w-xs text-sm">Our AI is currently cross-referencing your holdings with real-time market trends and risk factors.</p>
+              <h3 className="text-xl font-bold font-display text-terminal-text tracking-tight">Synthesizing Intelligence...</h3>
+              <p className="max-w-xs text-xs text-terminal-muted font-mono leading-relaxed">Cross-referencing holdings with real-time market trends, macro headwinds, and idiosyncratic risk factors.</p>
             </div>
           </div>
         ) : report ? (
-          <div className="prose prose-slate max-w-none prose-headings:font-display prose-headings:text-slate-900 prose-p:text-slate-600 prose-li:text-slate-600 prose-strong:text-slate-900 prose-headings:tracking-tight">
-            <ReactMarkdown>{report}</ReactMarkdown>
+          <div className="space-y-12">
+            <div className="prose prose-invert prose-sm max-w-none prose-headings:font-display prose-headings:tracking-tight prose-headings:text-terminal-text prose-p:text-terminal-muted prose-p:leading-relaxed prose-strong:text-terminal-text prose-strong:font-bold prose-code:text-indigo-400 prose-pre:bg-white/5 prose-pre:border prose-pre:border-white/10">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{report}</ReactMarkdown>
+            </div>
+
+            {citations.length > 0 && (
+              <div className="pt-8 border-t border-white/10">
+                <h3 className="text-xs font-bold text-terminal-text uppercase tracking-widest mb-6 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-indigo-400" />
+                  Sources & Citations
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {citations.map((cite, i) => (
+                    <a 
+                      key={i} 
+                      href={cite.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-indigo-500/30 transition-all group"
+                    >
+                      <span className="text-[10px] font-bold font-mono text-terminal-muted group-hover:text-terminal-text truncate mr-2 uppercase tracking-tighter">{cite.text}</span>
+                      <ExternalLink className="h-3 w-3 text-terminal-muted group-hover:text-indigo-400" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-[400px] text-slate-500 text-center">
-            <div className="h-20 w-20 rounded-2xl bg-slate-50 flex items-center justify-center mb-6 border border-slate-100">
-              <Bot className="h-10 w-10 text-slate-300" />
+          <div className="flex flex-col items-center justify-center h-[400px] text-center">
+            <div className="h-24 w-24 rounded-2xl bg-white/5 flex items-center justify-center mb-8 border border-white/10">
+              <Bot className="h-12 w-12 text-terminal-muted opacity-30" />
             </div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2">No Analysis Generated</h3>
-            <p className="max-w-md text-slate-500 mb-8">
-              Get a comprehensive breakdown of your portfolio's performance, risk profile, and optimization opportunities.
+            <h3 className="text-2xl font-bold font-display text-terminal-text tracking-tight mb-3">No Analysis Generated</h3>
+            <p className="max-w-md text-xs text-terminal-muted font-mono leading-relaxed mb-10">
+              Initiate a comprehensive diagnostic to synthesize your portfolio data with current market conditions and institutional-grade risk logic.
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-2xl">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-3xl">
               {[
-                { title: 'Risk Assessment', desc: 'Identify systematic & idiosyncratic risks' },
-                { title: 'Market Context', desc: 'How macro factors affect your ETFs' },
-                { title: 'Optimization', desc: 'Actionable rebalancing suggestions' }
+                { title: 'Risk Assessment', desc: 'Identify systematic & idiosyncratic risks', icon: ShieldAlert },
+                { title: 'Market Context', desc: 'How macro factors affect your ETFs', icon: Activity },
+                { title: 'Optimization', desc: 'Actionable rebalancing suggestions', icon: Zap }
               ].map((item, i) => (
-                <div key={i} className="p-4 rounded-xl border border-slate-100 bg-slate-50/50 text-left">
-                  <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1">{item.title}</h4>
-                  <p className="text-xs text-slate-600">{item.desc}</p>
+                <div key={i} className="p-5 rounded-2xl border border-white/5 bg-white/[0.02] text-left hover:border-indigo-500/20 transition-colors">
+                  <h4 className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-2">{item.title}</h4>
+                  <p className="text-[10px] text-terminal-muted leading-relaxed font-mono">{item.desc}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
-      </CardContent>
+      </div>
       <div className="px-8 pb-8">
         <DataSourceFooter 
           pageName="AI Portfolio Analysis" 
           interpretation="The Analysis tab leverages Gemini 3.1 Pro to synthesize your portfolio data with current market conditions. It provides a narrative interpretation of your risk-reward profile, identifies potential concentration issues, and offers strategic rebalancing suggestions based on institutional-grade financial logic."
         />
       </div>
-    </Card>
+    </div>
   );
 }

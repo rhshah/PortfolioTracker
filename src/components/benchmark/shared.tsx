@@ -80,21 +80,21 @@ export const InfoTooltip = ({ title, description, lookFor }: any) => {
         onClick={() => setShow(!show)}
         onMouseEnter={() => setShow(true)}
         onMouseLeave={() => setShow(false)}
-        className="text-slate-300 hover:text-indigo-500 transition-colors focus:outline-none align-middle"
+        className="text-terminal-muted hover:text-indigo-400 transition-colors focus:outline-none align-middle"
       >
         <HelpCircle className="h-3.5 w-3.5" />
       </button>
       {show && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-50 pointer-events-none">
-          <p className="font-bold mb-1 text-indigo-300 uppercase tracking-widest">{title}</p>
-          <p className="mb-2 text-slate-300 leading-relaxed">{description}</p>
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-4 bg-[#151921] border border-white/10 text-white text-[10px] rounded-xl shadow-2xl z-50 pointer-events-none">
+          <p className="font-mono font-bold mb-1 text-indigo-400 uppercase tracking-widest">{title}</p>
+          <p className="mb-2 text-terminal-muted leading-relaxed">{description}</p>
           {lookFor && (
-            <div className="pt-2 border-t border-slate-700">
-              <p className="text-indigo-400 font-bold uppercase tracking-tighter mb-1">What to look for:</p>
-              <p className="text-slate-400 italic">{lookFor}</p>
+            <div className="pt-2 border-t border-white/10">
+              <p className="text-indigo-400 font-mono font-bold uppercase tracking-tighter mb-1">Diagnostic Context:</p>
+              <p className="text-terminal-muted italic">{lookFor}</p>
             </div>
           )}
-          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900 rotate-45" />
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-[#151921] border-r border-b border-white/10 rotate-45" />
         </div>
       )}
     </div>
@@ -114,47 +114,47 @@ export const MetricRow = ({ label, portValue, benchValue, isPercentage = false, 
   };
   
   return (
-    <div className="py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors px-2 -mx-2 rounded-lg">
+    <div className="py-4 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-xl">
       <div className="flex items-center justify-between group relative">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-slate-600">{label}</span>
+          <span className="tech-label text-terminal-muted">{label}</span>
           {info && (
             <button 
               onClick={() => setShowInfo(!showInfo)}
-              className="text-slate-300 hover:text-indigo-500 transition-colors focus:outline-none"
+              className="text-terminal-muted hover:text-indigo-400 transition-colors focus:outline-none"
               title="Click for info"
             >
               <HelpCircle className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
-        <div className="flex items-center gap-4 sm:gap-6 text-xs sm:text-sm">
-          <div className="flex flex-col items-end w-16 sm:w-20">
-            <span className={`font-semibold flex items-center justify-end gap-1 ${isPositive ? 'text-emerald-700' : 'text-rose-700'}`}>
+        <div className="flex items-center gap-8 text-xs">
+          <div className="flex flex-col items-end w-24">
+            <span className={`tech-value ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
               {formatValue(portValue)}
             </span>
-            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-tighter">Portfolio</span>
+            <span className="text-[9px] text-terminal-muted uppercase font-mono font-bold tracking-tighter">Portfolio</span>
           </div>
-          <div className="flex flex-col items-end w-16 sm:w-20">
-            <span className="text-slate-600 font-medium">
+          <div className="flex flex-col items-end w-24">
+            <span className="tech-value text-terminal-text">
               {formatValue(benchValue)}
             </span>
-            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-tighter">Benchmark</span>
+            <span className="text-[9px] text-terminal-muted uppercase font-mono font-bold tracking-tighter">Benchmark</span>
           </div>
-          <div className="flex flex-col items-end w-16 sm:w-20">
-            <span className={`flex items-center justify-end font-bold ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+          <div className="flex flex-col items-end w-24">
+            <span className={`tech-value ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
               {isPositive ? '+' : '-'}{formatValue(Math.abs(diff))}
             </span>
-            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-tighter">Difference</span>
+            <span className="text-[9px] text-terminal-muted uppercase font-mono font-bold tracking-tighter">Variance</span>
           </div>
         </div>
       </div>
       {showInfo && info && (
-        <div className="mt-2 p-3 bg-indigo-50 border border-indigo-100 rounded-md text-xs text-indigo-900 animate-in fade-in slide-in-from-top-1 duration-200">
-          <p className="font-bold mb-1">{label}</p>
+        <div className="mt-3 p-4 bg-indigo-600/10 border border-indigo-500/20 rounded-xl text-[11px] text-terminal-muted animate-in fade-in slide-in-from-top-1 duration-200">
+          <p className="font-mono font-bold mb-1 text-indigo-400 uppercase">{label}</p>
           <p className="mb-2 opacity-80">{info.description}</p>
-          <div className="pt-2 border-t border-indigo-200/50">
-            <span className="font-semibold">What to look for: </span>
+          <div className="pt-2 border-t border-white/10">
+            <span className="font-mono font-bold text-indigo-400 uppercase">Analysis: </span>
             {info.lookFor}
           </div>
         </div>
@@ -171,12 +171,11 @@ export const VisualMetricCell = ({ value, min, max, target, isPercentage = false
   const percentage = ((safeValue - min) / range) * 100;
   const clampedPercentage = Math.max(0, Math.min(100, percentage));
   
-  let colorClass = 'bg-slate-400';
+  let colorClass = 'bg-terminal-muted';
   if (isAvailable && target !== undefined) {
     const isGood = inverse ? safeValue < target : safeValue > target;
     colorClass = isGood ? 'bg-emerald-500' : 'bg-rose-500';
   } else if (isAvailable) {
-    // Default gradient based on value
     if (safeValue > 0) colorClass = 'bg-emerald-500';
     else if (safeValue < 0) colorClass = 'bg-rose-500';
   }
@@ -184,12 +183,12 @@ export const VisualMetricCell = ({ value, min, max, target, isPercentage = false
   return (
     <td className="px-4 py-3 text-right">
       <div className="flex flex-col items-end gap-1">
-        <span className={`font-mono text-xs font-medium ${!isAvailable ? 'text-slate-400' : safeValue > 0 ? 'text-emerald-700' : safeValue < 0 ? 'text-rose-700' : 'text-slate-600'}`}>
+        <span className={`tech-value ${!isAvailable ? 'text-terminal-muted' : safeValue > 0 ? 'text-emerald-400' : safeValue < 0 ? 'text-rose-400' : 'text-terminal-text'}`}>
           {!isAvailable ? 'N/A' : `${safeValue > 0 ? '+' : ''}${safeValue.toFixed(2)}${isPercentage ? '%' : ''}`}
         </span>
-        <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden">
+        <div className="w-16 h-1 bg-white/5 rounded-full overflow-hidden">
           <div 
-            className={`h-full ${colorClass} transition-all duration-500`} 
+            className={`h-full ${colorClass} transition-all duration-500 shadow-[0_0_8px_rgba(0,0,0,0.5)]`} 
             style={{ width: `${isAvailable ? clampedPercentage : 0}%` }} 
           />
         </div>
@@ -204,12 +203,12 @@ export const TableHeaderWithTooltip = ({ label, metricKey, sortKey, currentSortF
 
   return (
     <th 
-      className={`px-4 py-3 font-medium group/header relative ${sortKey ? 'cursor-pointer hover:bg-slate-100 transition-colors' : ''}`}
+      className={`px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-terminal-muted group/header relative ${sortKey ? 'cursor-pointer hover:bg-white/5 transition-colors' : ''}`}
       onClick={() => sortKey && onSort(sortKey)}
     >
       <div className="flex items-center gap-1.5">
         {label}
-        {sortKey && <ArrowUpDown className={`h-3 w-3 ${currentSortField === sortKey ? 'text-indigo-600' : 'text-slate-300'}`} />}
+        {sortKey && <ArrowUpDown className={`h-3 w-3 ${currentSortField === sortKey ? 'text-indigo-400' : 'text-terminal-muted/30'}`} />}
         {info && (
           <div className="relative">
             <button 
@@ -217,20 +216,20 @@ export const TableHeaderWithTooltip = ({ label, metricKey, sortKey, currentSortF
                 e.stopPropagation();
                 setShowInfo(!showInfo);
               }}
-              className="text-slate-300 hover:text-indigo-400 focus:outline-none"
+              className="text-terminal-muted/50 hover:text-indigo-400 focus:outline-none"
             >
               <HelpCircle className="h-3 w-3" />
             </button>
             {showInfo && (
-              <div className="absolute top-full left-0 mt-2 w-56 p-2 bg-slate-800 text-white text-[10px] rounded shadow-xl z-50 normal-case font-normal animate-in fade-in zoom-in-95 duration-150">
-                <p className="font-bold mb-1 text-indigo-300 text-xs">{label}</p>
-                <p className="mb-1">{info.description}</p>
-                <div className="pt-1 border-t border-slate-700">
-                  <span className="text-indigo-200 font-semibold">Look for: </span>
-                  {info.lookFor}
+              <div className="absolute top-full left-0 mt-2 w-64 p-4 bg-slate-900 border border-white/10 text-white text-[10px] rounded-xl shadow-2xl z-50 normal-case font-normal animate-in fade-in zoom-in-95 duration-150">
+                <p className="font-mono font-bold mb-1 text-indigo-400 uppercase tracking-widest">{label}</p>
+                <p className="mb-2 text-terminal-muted leading-relaxed">{info.description}</p>
+                <div className="pt-2 border-t border-white/10">
+                  <p className="text-indigo-400 font-mono font-bold uppercase tracking-tighter mb-1">Diagnostic Context:</p>
+                  <p className="text-terminal-muted italic">{info.lookFor}</p>
                 </div>
                 <button 
-                  className="absolute top-1 right-1 text-slate-400 hover:text-white"
+                  className="absolute top-2 right-2 text-terminal-muted hover:text-white"
                   onClick={() => setShowInfo(false)}
                 >
                   ×
@@ -250,12 +249,12 @@ export const TableHeaderWithTooltipRight = ({ label, metricKey, sortKey, current
 
   return (
     <th 
-      className={`px-4 py-3 font-medium text-right group/header relative ${sortKey ? 'cursor-pointer hover:bg-slate-100 transition-colors' : ''}`}
+      className={`px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-terminal-muted text-right group/header relative ${sortKey ? 'cursor-pointer hover:bg-white/5 transition-colors' : ''}`}
       onClick={() => sortKey && onSort(sortKey)}
     >
       <div className="flex items-center justify-end gap-1.5">
         {label}
-        {sortKey && <ArrowUpDown className={`h-3 w-3 ${currentSortField === sortKey ? 'text-indigo-600' : 'text-slate-300'}`} />}
+        {sortKey && <ArrowUpDown className={`h-3 w-3 ${currentSortField === sortKey ? 'text-indigo-400' : 'text-terminal-muted/30'}`} />}
         {info && (
           <div className="relative">
             <button 
@@ -263,20 +262,20 @@ export const TableHeaderWithTooltipRight = ({ label, metricKey, sortKey, current
                 e.stopPropagation();
                 setShowInfo(!showInfo);
               }}
-              className="text-slate-300 hover:text-indigo-400 focus:outline-none"
+              className="text-terminal-muted/50 hover:text-indigo-400 focus:outline-none"
             >
               <HelpCircle className="h-3 w-3" />
             </button>
             {showInfo && (
-              <div className="absolute top-full right-0 mt-2 w-56 p-2 bg-slate-800 text-white text-[10px] rounded shadow-xl z-50 normal-case font-normal animate-in fade-in zoom-in-95 duration-150">
-                <p className="font-bold mb-1 text-indigo-300 text-xs">{label}</p>
-                <p className="mb-1">{info.description}</p>
-                <div className="pt-1 border-t border-slate-700">
-                  <span className="text-indigo-200 font-semibold">Look for: </span>
-                  {info.lookFor}
+              <div className="absolute top-full right-0 mt-2 w-64 p-4 bg-slate-900 border border-white/10 text-white text-[10px] rounded-xl shadow-2xl z-50 normal-case font-normal animate-in fade-in zoom-in-95 duration-150">
+                <p className="font-mono font-bold mb-1 text-indigo-400 uppercase tracking-widest">{label}</p>
+                <p className="mb-2 text-terminal-muted leading-relaxed">{info.description}</p>
+                <div className="pt-2 border-t border-white/10">
+                  <p className="text-indigo-400 font-mono font-bold uppercase tracking-tighter mb-1">Diagnostic Context:</p>
+                  <p className="text-terminal-muted italic">{info.lookFor}</p>
                 </div>
                 <button 
-                  className="absolute top-1 right-1 text-slate-400 hover:text-white"
+                  className="absolute top-2 right-2 text-terminal-muted hover:text-white"
                   onClick={() => setShowInfo(false)}
                 >
                   ×

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
@@ -18,18 +18,58 @@
   --color-indigo-800: #232aa5;
   --color-indigo-900: #212883;
   --color-indigo-950: #14174d;
+
+  /* Institutional Dark Palette */
+  --color-terminal-bg: #0B0E14;
+  --color-terminal-card: #151921;
+  --color-terminal-border: rgba(255, 255, 255, 0.05);
+  --color-terminal-accent: #6366f1;
+  --color-terminal-text: #E2E8F0;
+  --color-terminal-muted: #64748B;
 }
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900 antialiased;
+    @apply bg-terminal-bg text-terminal-text antialiased overflow-hidden;
   }
 }
 
-.glass-card {
-  @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-sm;
+@layer components {
+  .glass-panel {
+    @apply bg-terminal-card/60 backdrop-blur-xl border border-terminal-border shadow-2xl;
+  }
+
+  .terminal-card {
+    @apply bg-terminal-card border border-terminal-border rounded-xl transition-all duration-300;
+  }
+
+  .terminal-card:hover {
+    @apply border-terminal-accent/30 shadow-[0_0_20px_rgba(99,102,241,0.1)];
+  }
+
+  .tech-label {
+    @apply font-mono text-[10px] uppercase tracking-widest text-terminal-muted;
+  }
+
+  .tech-value {
+    @apply font-mono font-bold tracking-tight;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
-.chart-tooltip {
-  @apply bg-slate-900 text-white p-3 rounded-lg shadow-xl border border-slate-700 text-xs;
+/* Custom animations for institutional feel */
+@keyframes slam-in {
+  0% { transform: scale(1.05); opacity: 0; filter: blur(10px); }
+  100% { transform: scale(1); opacity: 1; filter: blur(0); }
+}
+
+.animate-slam {
+  animation: slam-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

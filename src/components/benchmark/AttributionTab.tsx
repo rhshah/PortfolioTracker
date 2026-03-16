@@ -267,18 +267,18 @@ export const AttributionTab: React.FC<AttributionTabProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white/5 p-6 rounded-2xl border border-white/10 shadow-xl">
         <div className="flex flex-col">
-          <h3 className="text-sm font-bold text-slate-900">Analysis Parameters</h3>
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Configure your attribution view</p>
+          <h3 className="text-sm font-mono font-bold text-terminal-text uppercase tracking-widest">Analysis Parameters</h3>
+          <p className="text-[10px] text-terminal-muted uppercase tracking-widest font-bold">Configure your attribution view</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center bg-slate-100 rounded-lg p-1">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center bg-white/5 rounded-xl p-1 border border-white/10">
             {['1M', '3M', 'YTD', '1Y', 'ALL'].map((range) => (
               <button
                 key={range}
                 onClick={() => setTimeRange(range)}
-                className={`px-3 py-1 text-xs rounded-md transition-all ${timeRange === range ? 'bg-white shadow-sm font-bold text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`px-4 py-1.5 text-[10px] font-mono font-bold rounded-lg transition-all ${timeRange === range ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-terminal-muted hover:text-terminal-text'}`}
               >
                 {range}
               </button>
@@ -287,328 +287,342 @@ export const AttributionTab: React.FC<AttributionTabProps> = ({
           <select
             value={selectedBenchmark}
             onChange={(e) => setSelectedBenchmark(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold shadow-sm focus:ring-2 focus:ring-indigo-500/20 outline-none"
+            className="rounded-xl border border-white/10 bg-white/5 px-4 py-1.5 text-[10px] font-mono font-bold text-terminal-text shadow-sm focus:ring-2 focus:ring-indigo-500/20 outline-none appearance-none cursor-pointer hover:bg-white/10 transition-colors"
           >
             {benchmarks.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
+              <option key={b.id} value={b.id} className="bg-slate-900">{b.name}</option>
             ))}
           </select>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Overall Performance
-              <InfoTooltip 
-                title="Cumulative Performance" 
-                description="Shows the growth of your portfolio compared to the selected benchmark over time." 
-                lookFor="Look for consistent outperformance (Alpha) and how the portfolio reacts during market dips."
-              />
-            </CardTitle>
-            <CardDescription>Cumulative Growth ({timeRange}): Portfolio vs. {benchmarkName}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px] w-full">
+      <div className="grid gap-8 lg:grid-cols-3">
+        <div className="lg:col-span-2 glass-panel p-8">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-sm font-mono font-bold text-terminal-text uppercase tracking-widest flex items-center gap-2">
+                Overall Performance
+                <InfoTooltip 
+                  title="Cumulative Performance" 
+                  description="Shows the growth of your portfolio compared to the selected benchmark over time." 
+                  lookFor="Look for consistent outperformance (Alpha) and how the portfolio reacts during market dips."
+                />
+              </h3>
+              <p className="text-[10px] text-terminal-muted uppercase font-bold">Cumulative Growth ({timeRange}): Portfolio vs. {benchmarkName}</p>
+            </div>
+          </div>
+          
+          <div className="h-[350px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={formattedPerformanceData}>
+                <defs>
+                  <linearGradient id="colorPort" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                <XAxis 
+                  dataKey="displayDate" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10, fontFamily: 'JetBrains Mono' }}
+                  minTickGap={30}
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10, fontFamily: 'JetBrains Mono' }}
+                  tickFormatter={(val) => `${val.toFixed(0)}`}
+                  domain={['auto', 'auto']}
+                />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#151921', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.5)' }}
+                  itemStyle={{ fontSize: '11px', fontFamily: 'JetBrains Mono' }}
+                  labelStyle={{ color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}
+                  formatter={(value: number) => [`${value.toFixed(2)}`, '']}
+                />
+                <Legend verticalAlign="top" align="right" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontFamily: 'JetBrains Mono', textTransform: 'uppercase', letterSpacing: '0.05em' }} />
+                <Area type="monotone" dataKey="Portfolio" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorPort)" animationDuration={1500} />
+                <Line type="monotone" dataKey={benchmarkName} stroke="rgba(255,255,255,0.3)" strokeWidth={2} strokeDasharray="5 5" dot={false} animationDuration={1500} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="mt-12">
+            <div className="flex items-center justify-between mb-6">
+              <h4 className="text-[10px] font-mono font-bold text-terminal-muted uppercase tracking-widest">Drawdown Analysis</h4>
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
+                  <span className="text-[10px] font-mono font-bold text-terminal-muted uppercase">Portfolio</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-white/20" />
+                  <span className="text-[10px] font-mono font-bold text-terminal-muted uppercase">Benchmark</span>
+                </div>
+              </div>
+            </div>
+            <div className="h-[120px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={formattedPerformanceData}>
-                  <defs>
-                    <linearGradient id="colorPort" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis 
-                    dataKey="displayDate" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fill: '#64748b', fontSize: 11 }}
-                    minTickGap={20}
-                  />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                  <XAxis dataKey="displayDate" hide />
                   <YAxis 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fill: '#64748b', fontSize: 11 }}
-                    tickFormatter={(val) => `${val.toFixed(0)}`}
-                    domain={['auto', 'auto']}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9, fontFamily: 'JetBrains Mono' }}
+                    tickFormatter={(v) => `${v}%`}
+                    domain={['auto', 0]}
                   />
                   <Tooltip 
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number) => [`${value.toFixed(2)}`, '']}
+                    contentStyle={{ backgroundColor: '#151921', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}
+                    itemStyle={{ fontSize: '10px', fontFamily: 'JetBrains Mono' }}
+                    formatter={(value: number) => [`${value.toFixed(2)}%`, '']}
                   />
-                  <Legend verticalAlign="top" height={36} iconType="circle" />
-                  <Area type="monotone" dataKey="Portfolio" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorPort)" />
-                  <Line type="monotone" dataKey={benchmarkName} stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                  <Area type="monotone" dataKey="portDrawdown" name="Port DD" stroke="#f43f5e" fill="#f43f5e" fillOpacity={0.1} />
+                  <Area type="monotone" dataKey="benchDrawdown" name="Bench DD" stroke="rgba(255,255,255,0.2)" fill="rgba(255,255,255,0.05)" fillOpacity={0.05} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
+          </div>
+        </div>
 
-            <div className="mt-8">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Drawdown Analysis</h4>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full bg-rose-500" />
-                    <span className="text-[10px] font-bold text-slate-500">Portfolio</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full bg-slate-300" />
-                    <span className="text-[10px] font-bold text-slate-500">Benchmark</span>
-                  </div>
-                </div>
-              </div>
-              <div className="h-[100px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={formattedPerformanceData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="displayDate" hide />
-                    <YAxis 
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: '#94a3b8', fontSize: 9 }}
-                      tickFormatter={(v) => `${v}%`}
-                      domain={['auto', 0]}
-                    />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                      itemStyle={{ fontSize: '11px' }}
-                      formatter={(value: number) => [`${value.toFixed(2)}%`, '']}
-                    />
-                    <Area type="monotone" dataKey="portDrawdown" name="Port DD" stroke="#f43f5e" fill="#f43f5e" fillOpacity={0.1} />
-                    <Area type="monotone" dataKey="benchDrawdown" name="Bench DD" stroke="#94a3b8" fill="#94a3b8" fillOpacity={0.05} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+        <div className="glass-panel p-8">
+          <div className="mb-8">
+            <h3 className="text-sm font-mono font-bold text-terminal-text uppercase tracking-widest flex items-center gap-2">
               Portfolio Construction
               <InfoTooltip 
                 title="Asset Allocation" 
                 description="The breakdown of your portfolio by individual ETF holdings." 
                 lookFor="Ensure your portfolio isn't overly concentrated in a single asset unless intentional."
               />
-            </CardTitle>
-            <CardDescription>Asset Class Allocation</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[250px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={portfolioConstruction}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {portfolioConstruction.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="mt-4 space-y-4">
-              {portfolioConstruction.map((item) => (
-                <div key={item.name} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                      <span className="text-slate-600 font-bold">{item.name}</span>
-                    </div>
-                    <div className="flex gap-3">
-                      <span className="text-slate-400">Port: <span className="text-slate-900 font-bold">{item.value.toFixed(1)}%</span></span>
-                      <span className="text-slate-400">Bench: <span className="text-slate-900 font-bold">{item.benchmark.toFixed(1)}%</span></span>
-                    </div>
+            </h3>
+            <p className="text-[10px] text-terminal-muted uppercase font-bold">Asset Class Allocation</p>
+          </div>
+
+          <div className="h-[280px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={portfolioConstruction}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={70}
+                  outerRadius={90}
+                  paddingAngle={8}
+                  dataKey="value"
+                  stroke="none"
+                >
+                  {portfolioConstruction.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.8} className="hover:opacity-100 transition-opacity cursor-pointer" />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#151921', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}
+                  itemStyle={{ fontSize: '11px', fontFamily: 'JetBrains Mono' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          
+          <div className="mt-8 space-y-6">
+            {portfolioConstruction.map((item) => (
+              <div key={item.name} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)]" style={{ backgroundColor: item.color }} />
+                    <span className="text-[11px] font-mono font-bold text-terminal-text uppercase tracking-tight">{item.name}</span>
                   </div>
-                  <div className={`text-[10px] font-bold text-right ${item.active >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {item.active >= 0 ? '+' : ''}{item.active.toFixed(1)}% Active Weight
+                  <div className="flex gap-4">
+                    <div className="flex flex-col items-end">
+                      <span className="text-[11px] font-mono font-bold text-terminal-text">{item.value.toFixed(1)}%</span>
+                      <span className="text-[8px] text-terminal-muted uppercase font-bold">Port</span>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <span className="text-[11px] font-mono font-bold text-terminal-muted">{item.benchmark.toFixed(1)}%</span>
+                      <span className="text-[8px] text-terminal-muted uppercase font-bold">Bench</span>
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-1000 ${item.active >= 0 ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                    style={{ width: `${Math.abs(item.active) * 2}%`, marginLeft: item.active < 0 ? '0' : 'auto' }}
+                  />
+                </div>
+                <div className={`text-[9px] font-mono font-bold text-right uppercase tracking-tighter ${item.active >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {item.active >= 0 ? '+' : ''}{item.active.toFixed(1)}% Active Weight
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="border-indigo-100 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <div className="w-1.5 h-4 bg-indigo-600 rounded-full" />
-              Macro Risk & Return Metrics
-            </CardTitle>
-            <CardDescription>Period-specific statistical analysis ({timeRange})</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1">
-              <MetricRow label="1M Return" portValue={dynamicMetrics.portfolio.return1M} benchValue={dynamicMetrics.benchmark.return1M} isPercentage />
-              <MetricRow label="Volatility (Ann.)" portValue={dynamicMetrics.portfolio.volatility} benchValue={dynamicMetrics.benchmark.volatility} isPercentage inverseGood />
-              <MetricRow label="Sharpe Ratio" portValue={dynamicMetrics.portfolio.sharpeRatio} benchValue={dynamicMetrics.benchmark.sharpeRatio} />
-              <MetricRow label="Sortino Ratio" portValue={dynamicMetrics.portfolio.sortinoRatio} benchValue={dynamicMetrics.benchmark.sortinoRatio} />
-              <MetricRow label="Max Drawdown" portValue={dynamicMetrics.portfolio.maxDrawdown} benchValue={dynamicMetrics.benchmark.maxDrawdown} isPercentage inverseGood />
-              <MetricRow label="VaR (95%)" portValue={dynamicMetrics.portfolio.var95} benchValue={dynamicMetrics.benchmark.var95} isPercentage inverseGood />
+      <div className="grid gap-8 lg:grid-cols-2">
+        <div className="glass-panel p-8">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-1.5 h-6 bg-indigo-500 rounded-full shadow-[0_0_12px_rgba(99,102,241,0.5)]" />
+            <div>
+              <h3 className="text-sm font-mono font-bold text-terminal-text uppercase tracking-widest">Macro Risk & Return</h3>
+              <p className="text-[10px] text-terminal-muted uppercase font-bold">Period-specific statistical analysis ({timeRange})</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="space-y-2">
+            <MetricRow label="1M Return" portValue={dynamicMetrics.portfolio.return1M} benchValue={dynamicMetrics.benchmark.return1M} isPercentage />
+            <MetricRow label="Volatility (Ann.)" portValue={dynamicMetrics.portfolio.volatility} benchValue={dynamicMetrics.benchmark.volatility} isPercentage inverseGood />
+            <MetricRow label="Sharpe Ratio" portValue={dynamicMetrics.portfolio.sharpeRatio} benchValue={dynamicMetrics.benchmark.sharpeRatio} />
+            <MetricRow label="Sortino Ratio" portValue={dynamicMetrics.portfolio.sortinoRatio} benchValue={dynamicMetrics.benchmark.sortinoRatio} />
+            <MetricRow label="Max Drawdown" portValue={dynamicMetrics.portfolio.maxDrawdown} benchValue={dynamicMetrics.benchmark.maxDrawdown} isPercentage inverseGood />
+            <MetricRow label="VaR (95%)" portValue={dynamicMetrics.portfolio.var95} benchValue={dynamicMetrics.benchmark.var95} isPercentage inverseGood />
+          </div>
+        </div>
 
-        <Card className="border-indigo-100 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <div className="w-1.5 h-4 bg-indigo-600 rounded-full" />
-              Micro Attribution Metrics
-            </CardTitle>
-            <CardDescription>Relative performance vs. {selectedBenchmark}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1">
-              <MetricRow label="Alpha (Ann.)" portValue={dynamicMetrics.portfolio.alpha} benchValue={0} isPercentage />
-              <MetricRow label="Beta" portValue={dynamicMetrics.portfolio.beta} benchValue={1} inverseGood={dynamicMetrics.portfolio.beta > 1.1} />
-              <MetricRow label="Tracking Error" portValue={dynamicMetrics.portfolio.trackingError} benchValue={0} isPercentage inverseGood />
-              <MetricRow label="Information Ratio" portValue={dynamicMetrics.portfolio.informationRatio} benchValue={0} />
-              <MetricRow label="Treynor Ratio" portValue={dynamicMetrics.portfolio.treynorRatio} benchValue={dynamicMetrics.benchmark.treynorRatio} />
+        <div className="glass-panel p-8">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-1.5 h-6 bg-emerald-500 rounded-full shadow-[0_0_12px_rgba(16,185,129,0.5)]" />
+            <div>
+              <h3 className="text-sm font-mono font-bold text-terminal-text uppercase tracking-widest">Micro Attribution</h3>
+              <p className="text-[10px] text-terminal-muted uppercase font-bold">Relative performance vs. {selectedBenchmark}</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="space-y-2">
+            <MetricRow label="Alpha (Ann.)" portValue={dynamicMetrics.portfolio.alpha} benchValue={0} isPercentage />
+            <MetricRow label="Beta" portValue={dynamicMetrics.portfolio.beta} benchValue={1} inverseGood={dynamicMetrics.portfolio.beta > 1.1} />
+            <MetricRow label="Tracking Error" portValue={dynamicMetrics.portfolio.trackingError} benchValue={0} isPercentage inverseGood />
+            <MetricRow label="Information Ratio" portValue={dynamicMetrics.portfolio.informationRatio} benchValue={0} />
+            <MetricRow label="Treynor Ratio" portValue={dynamicMetrics.portfolio.treynorRatio} benchValue={dynamicMetrics.benchmark.treynorRatio} />
+          </div>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+      <div className="glass-panel p-8">
+        <div className="mb-8">
+          <h3 className="text-sm font-mono font-bold text-terminal-text uppercase tracking-widest flex items-center gap-2">
             Performance Gap Analysis
             <InfoTooltip 
               title="Performance Attribution" 
               description="Compares individual ETF returns against the benchmark to identify where Alpha is being generated." 
               lookFor="Green bars indicate positive Alpha (outperformance), while red bars indicate underperformance."
             />
-          </CardTitle>
-          <CardDescription>1M Return: Portfolio vs. Benchmark (Alpha Highlighted)</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={dumbbellData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
-                <XAxis type="number" hide />
-                <YAxis 
-                  dataKey="symbol" 
-                  type="category" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }}
-                  width={40}
-                />
-                <Tooltip 
-                  cursor={{ fill: '#f8fafc' }}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const data = payload[0].payload;
-                      return (
-                        <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-xl text-xs">
-                          <p className="font-bold text-slate-900 mb-2">{data.symbol}</p>
-                          <div className="space-y-1">
-                            <div className="flex justify-between gap-4">
-                              <span className="text-slate-500">ETF Return:</span>
-                              <span className="font-mono font-bold text-indigo-600">{data.return1M?.toFixed(2) || '0.00'}%</span>
-                            </div>
-                            <div className="flex justify-between gap-4">
-                              <span className="text-slate-500">Bench Return:</span>
-                              <span className="font-mono font-bold text-slate-600">{data.benchReturn1M?.toFixed(2) || '0.00'}%</span>
-                            </div>
-                            <div className="pt-1 border-t border-slate-100 flex justify-between gap-4">
-                              <span className="text-slate-500 font-bold">Alpha:</span>
-                              <span className={`font-mono font-bold ${(data.alpha || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                {(data.alpha || 0) >= 0 ? '+' : ''}{data.alpha?.toFixed(2) || '0.00'}%
-                              </span>
-                            </div>
+          </h3>
+          <p className="text-[10px] text-terminal-muted uppercase font-bold">1M Return: Portfolio vs. Benchmark (Alpha Highlighted)</p>
+        </div>
+        
+        <div className="h-[400px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={dumbbellData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="rgba(255,255,255,0.05)" />
+              <XAxis type="number" hide />
+              <YAxis 
+                dataKey="symbol" 
+                type="category" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 10, fontFamily: 'JetBrains Mono', fontWeight: 600 }}
+                width={60}
+              />
+              <Tooltip 
+                cursor={{ fill: 'rgba(255,255,255,0.02)' }}
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const data = payload[0].payload;
+                    return (
+                      <div className="bg-[#151921] p-4 border border-white/10 rounded-xl shadow-2xl text-[11px] font-mono">
+                        <p className="font-bold text-terminal-text mb-3 border-b border-white/10 pb-2 uppercase tracking-widest">{data.symbol}</p>
+                        <div className="space-y-2">
+                          <div className="flex justify-between gap-8">
+                            <span className="text-terminal-muted uppercase">ETF Return:</span>
+                            <span className="font-bold text-indigo-400">{data.return1M?.toFixed(2) || '0.00'}%</span>
+                          </div>
+                          <div className="flex justify-between gap-8">
+                            <span className="text-terminal-muted uppercase">Bench Return:</span>
+                            <span className="font-bold text-terminal-text">{data.benchReturn1M?.toFixed(2) || '0.00'}%</span>
+                          </div>
+                          <div className="pt-2 border-t border-white/10 flex justify-between gap-8">
+                            <span className="text-terminal-muted font-bold uppercase">Alpha:</span>
+                            <span className={`font-bold ${(data.alpha || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                              {(data.alpha || 0) >= 0 ? '+' : ''}{data.alpha?.toFixed(2) || '0.00'}%
+                            </span>
                           </div>
                         </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Bar dataKey="return1M" barSize={2} fill="#e2e8f0">
-                  {dumbbellData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.alpha >= 0 ? '#10b981' : '#f43f5e'} fillOpacity={0.2} />
-                  ))}
-                </Bar>
-                <Scatter dataKey="return1M" fill="#6366f1" />
-                <Scatter dataKey="benchReturn1M" fill="#94a3b8" shape="diamond" />
-              </ComposedChart>
-            </ResponsiveContainer>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Bar dataKey="return1M" barSize={2} fill="rgba(255,255,255,0.1)">
+                {dumbbellData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.alpha >= 0 ? '#10b981' : '#f43f5e'} fillOpacity={0.3} />
+                ))}
+              </Bar>
+              <Scatter dataKey="return1M" fill="#6366f1" />
+              <Scatter dataKey="benchReturn1M" fill="rgba(255,255,255,0.4)" shape="diamond" />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="mt-8 flex items-center justify-center gap-12 text-[10px] font-mono font-bold uppercase tracking-widest text-terminal-muted">
+          <div className="flex items-center gap-3">
+            <div className="w-3 h-3 bg-indigo-500 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
+            <span>ETF Return</span>
           </div>
-          <div className="mt-4 flex items-center justify-center gap-6 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-indigo-500 rounded-full" />
-              <span>ETF Return</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-slate-400 rotate-45" />
-              <span>Benchmark</span>
-            </div>
+          <div className="flex items-center gap-3">
+            <div className="w-3 h-3 bg-white/40 rotate-45" />
+            <span>Benchmark</span>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            Contribution to Return
-            <InfoTooltip 
-              title="Return Contribution" 
-              description="Shows how much each asset contributed to the total portfolio return based on its weight and performance." 
-              lookFor="Identify the primary drivers of performance. High contribution can come from high weight or high return."
-            />
-          </CardTitle>
-          <CardDescription>Estimated contribution by asset (Weight % × Return %)</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[350px] w-full">
+      <div className="grid gap-8 lg:grid-cols-2">
+        <div className="glass-panel p-8">
+          <div className="mb-8">
+            <h3 className="text-sm font-mono font-bold text-terminal-text uppercase tracking-widest flex items-center gap-2">
+              Contribution to Return
+              <InfoTooltip 
+                title="Return Contribution" 
+                description="Shows how much each asset contributed to the total portfolio return based on its weight and performance." 
+                lookFor="Identify the primary drivers of performance. High contribution can come from high weight or high return."
+              />
+            </h3>
+            <p className="text-[10px] text-terminal-muted uppercase font-bold">Estimated contribution by asset (Weight % × Return %)</p>
+          </div>
+          <div className="h-[400px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={contributionData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
-                <XAxis type="number" tick={{ fontSize: 10 }} unit="%" />
+                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="rgba(255,255,255,0.05)" />
+                <XAxis type="number" tick={{ fontSize: 10, fontFamily: 'JetBrains Mono', fill: 'rgba(255,255,255,0.4)' }} unit="%" />
                 <YAxis 
                   dataKey="name" 
                   type="category" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }}
-                  width={40}
+                  tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 10, fontFamily: 'JetBrains Mono', fontWeight: 600 }}
+                  width={60}
                 />
                 <Tooltip 
-                  cursor={{ fill: '#f8fafc' }}
+                  cursor={{ fill: 'rgba(255,255,255,0.02)' }}
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                       const data = payload[0].payload;
                       return (
-                        <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-xl text-xs">
-                          <p className="font-bold text-slate-900 mb-2">{data.name}</p>
-                          <div className="space-y-1">
-                            <div className="flex justify-between gap-4">
-                              <span className="text-slate-500">Weight:</span>
-                              <span className="font-mono font-bold">{data.weight.toFixed(2)}%</span>
+                        <div className="bg-[#151921] p-4 border border-white/10 rounded-xl shadow-2xl text-[11px] font-mono">
+                          <p className="font-bold text-terminal-text mb-3 border-b border-white/10 pb-2 uppercase tracking-widest">{data.name}</p>
+                          <div className="space-y-2">
+                            <div className="flex justify-between gap-8">
+                              <span className="text-terminal-muted uppercase">Weight:</span>
+                              <span className="font-bold text-terminal-text">{data.weight.toFixed(2)}%</span>
                             </div>
-                            <div className="flex justify-between gap-4">
-                              <span className="text-slate-500">Return:</span>
-                              <span className={`font-mono font-bold ${data.return >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            <div className="flex justify-between gap-8">
+                              <span className="text-terminal-muted uppercase">Return:</span>
+                              <span className={`font-bold ${data.return >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                 {data.return.toFixed(2)}%
                               </span>
                             </div>
-                            <div className="pt-1 border-t border-slate-100 flex justify-between gap-4">
-                              <span className="text-slate-500 font-bold">Contribution:</span>
-                              <span className={`font-mono font-bold ${data.contribution >= 0 ? 'text-indigo-600' : 'text-rose-600'}`}>
+                            <div className="pt-2 border-t border-white/10 flex justify-between gap-8">
+                              <span className="text-terminal-muted font-bold uppercase">Contribution:</span>
+                              <span className={`font-bold ${data.contribution >= 0 ? 'text-indigo-400' : 'text-rose-400'}`}>
                                 {data.contribution.toFixed(3)}%
                               </span>
                             </div>
@@ -621,57 +635,56 @@ export const AttributionTab: React.FC<AttributionTabProps> = ({
                 />
                 <Bar dataKey="contribution" radius={[0, 4, 4, 0]}>
                   {contributionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.contribution >= 0 ? '#6366f1' : '#f43f5e'} />
+                    <Cell key={`cell-${index}`} fill={entry.contribution >= 0 ? '#6366f1' : '#f43f5e'} fillOpacity={0.8} />
                   ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            Factor Exposures
-            <InfoTooltip 
-              title="Factor Analysis" 
-              description="Compares your portfolio's sensitivity to common investment factors against the benchmark." 
-              lookFor="Active factor tilts (e.g., high Quality or Value) explain performance differences relative to the market."
-            />
-          </CardTitle>
-          <CardDescription>Portfolio vs. Benchmark Factor Profile</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[350px] w-full">
+        <div className="glass-panel p-8">
+          <div className="mb-8">
+            <h3 className="text-sm font-mono font-bold text-terminal-text uppercase tracking-widest flex items-center gap-2">
+              Factor Exposures
+              <InfoTooltip 
+                title="Factor Analysis" 
+                description="Compares your portfolio's sensitivity to common investment factors against the benchmark." 
+                lookFor="Active factor tilts (e.g., high Quality or Value) explain performance differences relative to the market."
+              />
+            </h3>
+            <p className="text-[10px] text-terminal-muted uppercase font-bold">Portfolio vs. Benchmark Factor Profile</p>
+          </div>
+          <div className="h-[400px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart cx="50%" cy="50%" outerRadius="80%" data={factorExposures}>
-                <PolarGrid stroke="#e2e8f0" />
-                <PolarAngleAxis dataKey="factor" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }} />
+                <PolarGrid stroke="rgba(255,255,255,0.1)" />
+                <PolarAngleAxis dataKey="factor" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 10, fontFamily: 'JetBrains Mono', fontWeight: 600 }} />
                 <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
                 <Radar
                   name="Portfolio"
                   dataKey="portfolio"
                   stroke="#6366f1"
                   fill="#6366f1"
-                  fillOpacity={0.5}
+                  fillOpacity={0.4}
                 />
                 <Radar
                   name="Benchmark"
                   dataKey="benchmark"
-                  stroke="#94a3b8"
-                  fill="#94a3b8"
+                  stroke="rgba(255,255,255,0.4)"
+                  fill="rgba(255,255,255,0.2)"
                   fillOpacity={0.2}
                 />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0' }}
+                  contentStyle={{ backgroundColor: '#151921', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}
+                  itemStyle={{ fontSize: '11px', fontFamily: 'JetBrains Mono' }}
                 />
-                <Legend iconType="circle" />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontFamily: 'JetBrains Mono', textTransform: 'uppercase', letterSpacing: '0.05em' }} />
               </RadarChart>
             </ResponsiveContainer>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };

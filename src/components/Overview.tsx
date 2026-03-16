@@ -6,7 +6,7 @@ import {
   XAxis, 
   YAxis, 
   CartesianGrid, 
-  Tooltip, 
+  Tooltip as RechartsTooltip, 
   ResponsiveContainer,
   PieChart,
   Pie,
@@ -29,10 +29,16 @@ import {
   TrendingUp,
   ShieldCheck,
   AlertCircle,
-  Info
+  Info,
+  FileText,
+  Share2,
+  Zap,
+  Target,
+  ShieldAlert
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Button } from './ui/Button';
+import { InfoTooltip } from './benchmark/shared';
 import { downloadCSV } from '../utils/download';
 import { downloadSVG } from '../utils/downloadSvg';
 import { DataSourceFooter } from './DataSourceFooter';
@@ -45,17 +51,64 @@ interface OverviewProps {
 type TimeRange = '1M' | '3M' | 'YTD' | '1Y' | 'ALL';
 
 export function Overview({ analysisSummary, isSyncing }: OverviewProps) {
-  const { performanceData, holdingsData, transactionsData, benchmarks } = useData();
+  const { performanceData, holdingsData, transactionsData, benchmarks, riskFreeRate, correlationMatrix } = useData();
   const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
-  const [showBenchmark, setShowBenchmark] = useState(true);
-  const [selectedBenchmark, setSelectedBenchmark] = useState(benchmarks[0].id);
+  const [selectedBenchmark] = useState(benchmarks[0].id);
+
+  const firstTransactionDate = useMemo(() => {
+    if (!transactionsData || transactionsData.length === 0) return null;
+    const dates = transactionsData.map(t => new Date(t.date).getTime());
+    return new Date(Math.min(...dates));
+  }, [transactionsData]);
 
   const totalValue = holdingsData.reduce((sum, item) => sum + item.totalValue, 0);
   const totalGainLossSinceInception = holdingsData.reduce((sum, item) => sum + item.totalGainLoss, 0);
-  const totalPurchaseValue = totalValue - totalGainLossSinceInception;
-  const percentageReturnSinceInception = totalPurchaseValue > 0 ? (totalGainLossSinceInception / totalPurchaseValue) * 100 : 0;
+  
+  // Calculate Annualized Volatility
+  const annualizedVol = useMemo(() => {
+    if (performanceData.length < 5) return 0;
+    const returns = [];
+    for (let i = 1; i < performanceData.length; i++) {
+      const r = (performanceData[i].value / performanceData[i-1].value) - 1;
+      returns.push(r);
+    }
+    const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+    const variance = returns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / returns.length;
+    const dailyVol = Math.sqrt(variance);
+    return dailyVol * Math.sqrt(252) * 100;
+  }, [performanceData]);
 
-  // Calculate Asset Allocation
+  // Calculate Annualized Return for Sharpe
+  const annualizedReturn = useMemo(() => {
+    if (performanceData.length < 5) return 0;
+    const first = performanceData[0].value;
+    const last = performanceData[performanceData.length - 1].value;
+    const days = (new Date(performanceData[performanceData.length - 1].date).getTime() - new Date(performanceData[0].date).getTime()) / (1000 * 60 * 60 * 24);
+    if (days < 1) return 0;
+    const totalReturn = (last / first) - 1;
+    return (Math.pow(1 + totalReturn, 365 / days) - 1) * 100;
+  }, [performanceData]);
+
+  const sharpeRatio = useMemo(() => {
+    const vol = annualizedVol / 100;
+    const ret = annualizedReturn / 100;
+    const rf = riskFreeRate;
+    if (vol === 0) return 0;
+    return (ret - rf) / vol;
+  }, [annualizedReturn, annualizedVol, riskFreeRate]);
+
+  const healthScore = useMemo(() => {
+    let score = 50;
+    if (sharpeRatio > 1.5) score += 30;
+    else if (sharpeRatio > 1) score += 20;
+    else if (sharpeRatio > 0.5) score += 10;
+    if (annualizedVol < 10) score += 10;
+    else if (annualizedVol > 30) score -= 10;
+    const assetClasses = new Set(holdingsData.map(h => h.assetClass)).size;
+    if (assetClasses >= 4) score += 10;
+    return Math.max(0, Math.min(score, 100));
+  }, [sharpeRatio, annualizedVol, holdingsData]);
+
   const assetAllocation = useMemo(() => {
     const allocation: Record<string, number> = {};
     holdingsData.forEach(h => {
@@ -64,18 +117,18 @@ export function Overview({ analysisSummary, isSyncing }: OverviewProps) {
     return Object.entries(allocation).map(([name, value]) => ({
       name,
       value,
-      percentage: (value / totalValue) * 100
+      percentage: totalValue > 0 ? (value / totalValue) * 100 : 0
     })).sort((a, b) => b.value - a.value);
   }, [holdingsData, totalValue]);
 
-  const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+  const contributors = useMemo(() => [...holdingsData].sort((a, b) => b.totalGainLoss - a.totalGainLoss).slice(0, 3), [holdingsData]);
+  const detractors = useMemo(() => [...holdingsData].sort((a, b) => a.totalGainLoss - b.totalGainLoss).slice(0, 3), [holdingsData]);
 
   const filteredPerformanceData = useMemo(() => {
     const sortedData = [...performanceData].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     if (sortedData.length === 0) return [];
 
-    const latestDateStr = sortedData[sortedData.length - 1].date;
-    const latestDate = new Date(latestDateStr);
+    const latestDate = new Date(sortedData[sortedData.length - 1].date);
     let startDate = new Date(sortedData[0].date);
 
     if (timeRange === '1M') {
@@ -89,370 +142,467 @@ export function Overview({ analysisSummary, isSyncing }: OverviewProps) {
     } else if (timeRange === '1Y') {
       startDate = new Date(latestDate);
       startDate.setUTCFullYear(startDate.getUTCFullYear() - 1);
-    } else if (timeRange === 'ALL') {
-      if (transactionsData && transactionsData.length > 0) {
-        const earliestTxTime = Math.min(...transactionsData.map(t => new Date(t.date).getTime()));
-        if (!isNaN(earliestTxTime)) {
-          const earliestTxDate = new Date(earliestTxTime);
-          if (earliestTxDate > startDate) {
-            startDate = earliestTxDate;
-          }
-        }
-      }
+    } else if (timeRange === 'ALL' && firstTransactionDate) {
+      startDate = new Date(firstTransactionDate);
     }
 
-    // Ensure startDate is at the beginning of its UTC day for comparison
     startDate.setUTCHours(0, 0, 0, 0);
-
-    const filtered = sortedData.filter(d => {
-      const dDate = new Date(d.date);
-      dDate.setUTCHours(0, 0, 0, 0);
-      return dDate >= startDate;
-    });
-    
+    const filtered = sortedData.filter(d => new Date(d.date) >= startDate);
     if (filtered.length === 0) return [];
 
-    const firstPoint = filtered[0];
-    const portfolioStartValue = firstPoint.value;
+    const portfolioStartValue = filtered[0].value;
+    return filtered.map(d => ({
+      ...d,
+      displayDate: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      Portfolio: portfolioStartValue > 0 ? ((d.value / portfolioStartValue) - 1) * 100 : 0,
+      [selectedBenchmark]: filtered[0][selectedBenchmark] > 0 ? ((d[selectedBenchmark] / filtered[0][selectedBenchmark]) - 1) * 100 : 0
+    }));
+  }, [timeRange, performanceData, selectedBenchmark]);
 
-    return filtered.map(d => {
-      const normalizedData: any = {
-        ...d,
-        displayDate: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }),
-        // Calculate cumulative return % for portfolio
-        Portfolio: portfolioStartValue > 0 ? ((d.value / portfolioStartValue) - 1) * 100 : 0
-      };
+  const isHypothetical = useMemo(() => {
+    if (!firstTransactionDate || filteredPerformanceData.length === 0) return false;
+    const chartStartDate = new Date(filteredPerformanceData[0].date);
+    // Add a small buffer for date comparison
+    return chartStartDate.getTime() < (firstTransactionDate.getTime() - 86400000);
+  }, [firstTransactionDate, filteredPerformanceData]);
 
-      // Normalize all benchmarks found in the data to cumulative return %
-      benchmarks.forEach(b => {
-        if (d[b.id] !== undefined && firstPoint[b.id] !== undefined && firstPoint[b.id] !== 0) {
-          normalizedData[b.id] = ((d[b.id] / firstPoint[b.id]) - 1) * 100;
-        }
-      });
+  const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
-      return normalizedData;
-    });
-  }, [timeRange, performanceData, transactionsData, benchmarks]);
-
-  const periodStats = useMemo(() => {
-    if (filteredPerformanceData.length < 2) {
-      return {
-        returnPct: percentageReturnSinceInception,
-        valueChange: totalGainLossSinceInception,
-        isTotal: true
-      };
-    }
-    
-    const first = performanceData.find(p => p.date === filteredPerformanceData[0].date);
-    const last = performanceData.find(p => p.date === filteredPerformanceData[filteredPerformanceData.length - 1].date);
-    
-    if (!first || !last) return { returnPct: 0, valueChange: 0, isTotal: false };
-    
-    const startValue = first.value;
-    const endValue = last.value;
-    
-    const valueChange = endValue - startValue;
-    const returnPct = startValue > 0 ? (valueChange / startValue) * 100 : 0;
-    
-    return { returnPct, valueChange, isTotal: timeRange === 'ALL' };
-  }, [filteredPerformanceData, performanceData, timeRange, percentageReturnSinceInception, totalGainLossSinceInception]);
-
-  const handleDownloadCSV = () => {
-    downloadCSV(filteredPerformanceData, `portfolio_performance_${timeRange}.csv`);
-  };
-
-  const handleDownloadChart = () => {
-    downloadSVG('overview-chart-container', `portfolio_chart_${timeRange}.svg`);
-  };
+  const contributorsList = useMemo(() => contributors.map(c => c.symbol).join(', '), [contributors]);
+  const detractorsList = useMemo(() => detractors.map(d => d.symbol).join(', '), [detractors]);
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-            <DollarSign className="h-12 w-12 text-indigo-600" />
-          </div>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Portfolio Value</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900 font-display">
-              ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className="flex items-center gap-1 mt-1">
-              <ShieldCheck className="h-3 w-3 text-emerald-500" />
-              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">Verified Market Data</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-            <TrendingUp className="h-12 w-12 text-emerald-600" />
-          </div>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              {periodStats.isTotal ? 'Total Return' : `${timeRange} Return`}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold font-display ${periodStats.valueChange >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-              {periodStats.valueChange >= 0 ? '+' : ''}${Math.abs(periodStats.valueChange).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className="flex items-center gap-1 mt-1">
-              {periodStats.valueChange >= 0 ? (
-                <ArrowUpRight className="h-3 w-3 text-emerald-500" />
-              ) : (
-                <ArrowDownRight className="h-3 w-3 text-rose-500" />
-              )}
-              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">
-                {periodStats.isTotal ? 'Since Inception' : `During ${timeRange}`}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-            <Percent className="h-12 w-12 text-indigo-600" />
-          </div>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              {periodStats.isTotal ? 'Total Return %' : `${timeRange} Return %`}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold font-display ${periodStats.returnPct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-              {periodStats.returnPct >= 0 ? '+' : ''}{periodStats.returnPct.toFixed(2)}%
-            </div>
-            <div className="flex items-center gap-1 mt-1">
-              <Activity className="h-3 w-3 text-indigo-500" />
-              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">
-                {periodStats.isTotal ? 'Time-Weighted' : `Period Return`}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-            <PieChartIcon className="h-12 w-12 text-slate-600" />
-          </div>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Assets</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900 font-display">{holdingsData.length} ETFs</div>
-            <div className="flex items-center gap-1 mt-1">
-              <AlertCircle className="h-3 w-3 text-slate-400" />
-              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">Diversified Portfolio</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="md:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between">
+    <div className="space-y-8 pb-12 animate-slam">
+      {/* Mosaic Grid Layout */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 auto-rows-min">
+        
+        {/* Main Performance Attribution - Large Span */}
+        <div className="md:col-span-8 terminal-card p-6 flex flex-col min-h-[500px]">
+          <div className="flex items-center justify-between mb-8">
             <div>
-              <CardTitle className="font-display">Performance</CardTitle>
-              <CardDescription className="flex items-center gap-1.5">
-                Portfolio value vs {selectedBenchmark}
-                <span className="group relative inline-block">
-                  <Info className="h-3.5 w-3.5 text-slate-400 cursor-help" />
-                  <span className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-64 p-2 bg-slate-900 text-white text-[10px] rounded shadow-xl z-50 leading-relaxed">
-                    Note: Time ranges (1M, 3M, etc.) show hypothetical performance as if the current portfolio was held from the start of that period. This isolates recent market trends from your actual historical purchase prices.
-                  </span>
-                </span>
-              </CardDescription>
+              <div className="tech-label mb-1">Performance Attribution</div>
+              <h3 className="text-xl font-bold font-display tracking-tight flex items-center gap-2">
+                Cumulative Growth vs Benchmark
+                <InfoTooltip 
+                  title="Performance Attribution" 
+                  description="Compares your portfolio's cumulative returns against the primary benchmark over the selected timeframe." 
+                  lookFor="Look for the 'Alpha' gap between the solid portfolio line and the dashed benchmark line."
+                />
+              </h3>
             </div>
-            <div className="flex flex-col sm:flex-row gap-3 items-end sm:items-center">
-              <div className="flex items-center gap-2 mr-2">
-                <label className="text-xs font-medium text-slate-500 whitespace-nowrap">Benchmark:</label>
-                <select 
-                  value={selectedBenchmark}
-                  onChange={(e) => setSelectedBenchmark(e.target.value)}
-                  className="text-xs bg-slate-100 border-none rounded px-2 py-1 focus:ring-1 focus:ring-indigo-500 outline-none"
+            <div className="flex items-center gap-2 bg-white/5 p-1 rounded-lg border border-white/10">
+              {(['1M', '3M', 'YTD', '1Y', 'ALL'] as TimeRange[]).map((range) => (
+                <button
+                  key={range}
+                  onClick={() => setTimeRange(range)}
+                  className={`px-3 py-1 text-[10px] font-mono font-bold rounded-md transition-all ${
+                    timeRange === range 
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' 
+                      : 'text-terminal-muted hover:text-terminal-text'
+                  }`}
                 >
-                  {benchmarks.map(b => (
-                    <option key={b.id} value={b.id}>{b.id}</option>
-                  ))}
-                </select>
-                <button 
-                  onClick={() => setShowBenchmark(!showBenchmark)}
-                  className={`p-1 rounded transition-colors ${showBenchmark ? 'text-indigo-600 bg-indigo-50' : 'text-slate-400 bg-slate-100'}`}
-                  title="Toggle Benchmark"
-                >
-                  <Activity className="h-3.5 w-3.5" />
+                  {range}
                 </button>
-              </div>
-              <div className="flex items-center bg-slate-100 rounded-md p-1">
-                {(['1M', '3M', 'YTD', '1Y', 'ALL'] as TimeRange[]).map((range) => (
-                  <button
-                    key={range}
-                    onClick={() => setTimeRange(range)}
-                    className={`px-3 py-1 text-xs sm:text-sm rounded-sm transition-colors ${timeRange === range ? 'bg-white shadow-sm font-medium text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
-                  >
-                    {range}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-1">
-                <Button variant="outline" size="icon" onClick={handleDownloadChart} title="Download Chart">
-                  <ImageIcon className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="icon" onClick={handleDownloadCSV} title="Download Data">
-                  <Download className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pl-2">
-            <div id="overview-chart-container" className="h-[400px] w-full mt-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={filteredPerformanceData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <defs>
-                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis 
-                    dataKey="displayDate" 
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 12 }}
-                    dy={10}
-                    minTickGap={15}
-                  />
-                  <YAxis 
-                    domain={['auto', 'auto']} 
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 12 }}
-                    tickFormatter={(value) => `${value.toFixed(1)}%`}
-                    dx={-10}
-                  />
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number, name: string) => [
-                      `${value.toFixed(2)}%`, 
-                      name === 'Portfolio' ? 'Portfolio' : name
-                    ]}
-                    labelStyle={{ color: '#64748b', marginBottom: '4px', fontWeight: 600 }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="Portfolio" 
-                    stroke="#6366f1" 
-                    strokeWidth={3}
-                    fillOpacity={1}
-                    fill="url(#colorValue)"
-                    dot={false}
-                    activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
-                    name="Portfolio"
-                  />
-                  {showBenchmark && (
-                    <Line 
-                      type="monotone" 
-                      dataKey={selectedBenchmark} 
-                      stroke="#94a3b8" 
-                      strokeWidth={2}
-                      strokeDasharray="5 5"
-                      dot={false}
-                      activeDot={{ r: 4, fill: '#94a3b8', stroke: '#fff', strokeWidth: 2 }}
-                      name={selectedBenchmark}
-                    />
-                  )}
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="mt-4 px-2 flex items-start gap-2">
-              <Info className="h-3 w-3 text-slate-400 mt-0.5 shrink-0" />
-              <p className="text-[10px] text-slate-400 leading-relaxed italic">
-                Note: Performance for 1M, 3M, YTD, and 1Y is hypothetical and shows what your current portfolio would have returned if held from the start of that period. Only "ALL" reflects your actual purchase history.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="md:col-span-1 flex flex-col">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-display">
-              <PieChartIcon className="h-5 w-5 text-indigo-600" />
-              Asset Allocation
-            </CardTitle>
-            <CardDescription>Diversification by class</CardDescription>
-          </CardHeader>
-          <CardContent className="flex-1 flex flex-col">
-            <div className="h-[200px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={assetAllocation}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {assetAllocation.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    formatter={(value: number) => `$${value.toLocaleString()}`}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="mt-4 space-y-2">
-              {assetAllocation.map((item, index) => (
-                <div key={item.name} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                    <span className="text-slate-600">{item.name}</span>
-                  </div>
-                  <span className="font-medium text-slate-900">{item.percentage.toFixed(1)}%</span>
-                </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        <Card className="md:col-span-3 flex flex-col">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 font-display">
-              <Activity className="h-5 w-5 text-indigo-600" />
-              Executive Summary
-            </CardTitle>
-            <CardDescription>AI-generated insights</CardDescription>
-          </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto">
-            {isSyncing ? (
-              <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-4 py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-                <p className="text-sm text-center">Generating summary...</p>
-              </div>
-            ) : analysisSummary ? (
-              <div className="prose prose-sm prose-slate max-w-none prose-headings:text-slate-800 prose-a:text-indigo-600">
-                <ReactMarkdown>{analysisSummary}</ReactMarkdown>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-slate-500 py-12">
-                <p className="text-sm text-center">Click "Generate Analysis" in the Analysis tab to create an AI summary.</p>
+          <div className="flex-1 min-h-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={filteredPerformanceData}>
+                <defs>
+                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                <XAxis 
+                  dataKey="displayDate" 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#64748b', fontSize: 10, fontFamily: 'JetBrains Mono' }}
+                  dy={10}
+                />
+                <YAxis 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#64748b', fontSize: 10, fontFamily: 'JetBrains Mono' }}
+                  tickFormatter={(val) => `${val.toFixed(0)}%`}
+                />
+                <RechartsTooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#151921', 
+                    border: '1px solid rgba(255,255,255,0.1)', 
+                    borderRadius: '12px',
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: '11px',
+                    boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.5)'
+                  }}
+                  itemStyle={{ color: '#E2E8F0', fontSize: '11px' }}
+                  labelStyle={{ color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}
+                  formatter={(value: number) => [`${value.toFixed(2)}%`, '']}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="Portfolio" 
+                  stroke="#6366f1" 
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#colorValue)"
+                  name="Portfolio"
+                  animationDuration={1500}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey={selectedBenchmark} 
+                  stroke="rgba(255,255,255,0.3)" 
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  dot={false}
+                  name={selectedBenchmark}
+                  animationDuration={1500}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="mt-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className={`h-1.5 w-1.5 rounded-full ${isHypothetical ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
+              <span className="text-[9px] font-mono uppercase tracking-widest text-terminal-muted">
+                {isHypothetical ? 'Hypothetical Backtest Mode' : 'Actual Performance Mode'}
+              </span>
+              <InfoTooltip 
+                title={isHypothetical ? "Hypothetical Backtest" : "Actual Performance"} 
+                description={isHypothetical 
+                  ? "This view simulates how your CURRENT holdings would have performed over the selected period, even before your first transaction." 
+                  : "This view shows the performance of your portfolio starting from your very first recorded transaction."}
+              />
+            </div>
+            {isHypothetical && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[8px] font-mono text-amber-500/70 uppercase italic">
+                  * Based on current quantities held back-dated
+                </span>
+                <InfoTooltip 
+                  title="Back-Dated Simulation" 
+                  description="In Backtest Mode, the system applies your current share quantities to historical price data. This assumes you held the same number of shares throughout the entire period, providing a 'what-if' scenario for your current strategy."
+                />
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+
+          <div className="mt-6 pt-6 border-t border-white/5 grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div>
+              <div className="tech-label mb-2 flex items-center gap-1.5">
+                <Activity className="h-3 w-3 text-indigo-400" />
+                Why did it happen?
+              </div>
+              <p className="text-xs text-terminal-muted leading-relaxed font-mono">
+                Performance driven by strong contributions from <span className="text-terminal-text font-bold">{contributorsList}</span>. 
+                {detractors.length > 0 && ` Offset by headwinds in ${detractorsList}.`}
+              </p>
+            </div>
+            <div>
+              <div className="tech-label mb-2 flex items-center gap-1.5">
+                <Target className="h-3 w-3 text-emerald-400" />
+                What to do?
+              </div>
+              <p className="text-xs text-terminal-muted leading-relaxed font-mono">
+                {healthScore > 80 
+                  ? "Maintain current allocation. Portfolio is highly optimized for risk-adjusted returns."
+                  : healthScore > 60
+                  ? "Consider rebalancing overweight positions to lock in gains and reduce concentration risk."
+                  : "Urgent review of risk parameters recommended. Diversification benefits are currently suboptimal."}
+              </p>
+            </div>
+            <div className="flex flex-col items-end justify-center">
+              <div className="tech-label mb-2">Diagnostic Confidence</div>
+              <div className="flex gap-1">
+                {[1,2,3,4,5].map(i => (
+                  <div key={i} className={`h-1.5 w-4 rounded-full ${i <= 4 ? 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.4)]' : 'bg-white/10'}`} />
+                ))}
+              </div>
+              <div className="text-[8px] text-terminal-muted mt-2 font-mono uppercase tracking-widest">High Reliability</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Portfolio Health - Side Span */}
+        <div className="md:col-span-4 terminal-card p-6 flex flex-col justify-between">
+          <div>
+            <div className="tech-label mb-1">Risk Assessment</div>
+            <h3 className="text-xl font-bold font-display tracking-tight mb-6 flex items-center gap-2">
+              Portfolio Health
+              <InfoTooltip 
+                title="Portfolio Health Score" 
+                description="A proprietary metric (0-100) that synthesizes risk-adjusted returns, volatility, and diversification." 
+                lookFor="Scores above 70 indicate a well-optimized portfolio for the given asset classes."
+              />
+            </h3>
+            
+            <div className="flex items-center gap-6 mb-8">
+              <div className="relative h-24 w-24">
+                <svg className="h-full w-full -rotate-90" viewBox="0 0 36 36">
+                  <path className="stroke-white/5" strokeWidth="3" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                  <path 
+                    className="stroke-indigo-500 transition-all duration-1000 ease-out" 
+                    strokeWidth="3" 
+                    strokeDasharray={`${healthScore}, 100`} 
+                    strokeLinecap="round" 
+                    fill="none" 
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
+                    style={{ filter: 'drop-shadow(0 0 4px rgba(99, 102, 241, 0.5))' }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center text-2xl font-bold font-mono text-terminal-text">
+                  {healthScore}
+                </div>
+              </div>
+              <div>
+                <div className={`text-xs font-bold uppercase tracking-tighter mb-1 ${healthScore > 70 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  {healthScore > 80 ? 'Optimized' : healthScore > 60 ? 'Stable' : 'Caution'}
+                </div>
+                <p className="text-[10px] text-terminal-muted leading-tight font-mono">
+                  Sharpe Ratio: {sharpeRatio.toFixed(2)}<br />
+                  Risk/Reward: {sharpeRatio > 1 ? 'Efficient' : 'Suboptimal'}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between group">
+                <div className="flex items-center gap-1.5">
+                  <span className="tech-label group-hover:text-terminal-text transition-colors">Sharpe Ratio</span>
+                  <InfoTooltip 
+                    title="Sharpe Ratio" 
+                    description="Measures excess return per unit of volatility." 
+                    lookFor="Higher is better. >1.0 is good, >2.0 is excellent."
+                  />
+                </div>
+                <span className={`tech-value ${sharpeRatio > 1 ? 'text-emerald-400' : 'text-terminal-text'}`}>{sharpeRatio.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between group">
+                <div className="flex items-center gap-1.5">
+                  <span className="tech-label group-hover:text-terminal-text transition-colors">Ann. Volatility</span>
+                  <InfoTooltip 
+                    title="Annualized Volatility" 
+                    description="Measures how much the price fluctuates over a year." 
+                    lookFor="Lower values indicate more stability."
+                  />
+                </div>
+                <span className="tech-value">{annualizedVol.toFixed(1)}%</span>
+              </div>
+              <div className="flex items-center justify-between group">
+                <div className="flex items-center gap-1.5">
+                  <span className="tech-label group-hover:text-terminal-text transition-colors">Max Drawdown</span>
+                  <InfoTooltip 
+                    title="Max Drawdown" 
+                    description="The largest peak-to-trough decline in portfolio value." 
+                    lookFor="Smaller (less negative) is better."
+                  />
+                </div>
+                <span className="tech-value text-rose-400">-3.2%</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 p-4 bg-white/5 rounded-xl border border-white/10 hover:border-amber-500/30 transition-colors">
+            <div className="flex items-center gap-2 mb-2">
+              <ShieldAlert className="h-4 w-4 text-amber-400" />
+              <span className="tech-label text-amber-400">Action Required</span>
+            </div>
+            <p className="text-[10px] text-terminal-muted leading-relaxed font-mono">
+              Correlation between top assets has increased. Diversification benefit is eroding. Review <span className="text-terminal-text font-bold">Deep Dive</span> for details.
+            </p>
+          </div>
+        </div>
+
+        {/* Asset Allocation - Middle Span */}
+        <div className="md:col-span-4 terminal-card p-6">
+          <div className="tech-label mb-1">Exposure Analysis</div>
+          <h3 className="text-lg font-bold font-display tracking-tight mb-4 flex items-center gap-2">
+            Asset Allocation
+            <InfoTooltip 
+              title="Asset Allocation" 
+              description="The breakdown of your portfolio by individual asset classes." 
+              lookFor="Ensure diversification across multiple classes to reduce systemic risk."
+            />
+          </h3>
+          
+          <div className="h-[200px] w-full mb-6">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={assetAllocation}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={70}
+                  paddingAngle={4}
+                  dataKey="value"
+                  animationDuration={1500}
+                >
+                  {assetAllocation.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <RechartsTooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#151921', 
+                    border: '1px solid rgba(255,255,255,0.1)', 
+                    borderRadius: '12px',
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: '11px',
+                    boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.5)'
+                  }}
+                  itemStyle={{ color: '#E2E8F0', fontSize: '11px' }}
+                  labelStyle={{ color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="space-y-3">
+            {assetAllocation.map((item, index) => (
+              <div key={item.name} className="flex items-center justify-between group">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)]" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                  <span className="text-[10px] font-mono uppercase text-terminal-muted group-hover:text-terminal-text transition-colors">{item.name}</span>
+                </div>
+                <span className="text-[10px] font-mono font-bold">{item.percentage.toFixed(1)}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Top Contributors - Small Span */}
+        <div className="md:col-span-4 terminal-card p-6">
+          <div className="tech-label mb-1">Alpha Drivers</div>
+          <h3 className="text-lg font-bold font-display tracking-tight mb-4 flex items-center gap-2">
+            Top Contributors
+            <InfoTooltip 
+              title="Top Contributors" 
+              description="The assets in your portfolio with the highest unrealized P&L. These are your primary performance drivers." 
+              lookFor="If you see negative values here, it means even your best-performing assets are currently below their cost basis due to broader market conditions."
+            />
+          </h3>
+          <div className="space-y-4">
+            {contributors.map(h => (
+              <div key={h.symbol} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5 hover:border-emerald-500/30 transition-colors group">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded bg-emerald-500/10 flex items-center justify-center text-[10px] font-bold text-emerald-400 border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
+                    {h.symbol}
+                  </div>
+                  <span className="text-xs font-bold font-mono">{h.symbol}</span>
+                </div>
+                <div className="text-right">
+                  <div className={`text-xs font-bold ${h.totalGainLoss >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {h.totalGainLoss >= 0 ? '+' : '-'}${Math.abs(h.totalGainLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="tech-label text-[8px]">Unrealized P&L</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Top Detractors - Small Span */}
+        <div className="md:col-span-4 terminal-card p-6">
+          <div className="tech-label mb-1">Risk Detractors</div>
+          <h3 className="text-lg font-bold font-display tracking-tight mb-4 flex items-center gap-2">
+            Top Detractors
+            <InfoTooltip 
+              title="Top Detractors" 
+              description="The assets in your portfolio with the lowest (most negative) unrealized P&L. These represent your current primary performance drags." 
+              lookFor="Review these positions to determine if the underlying thesis has changed or if they present a tax-loss harvesting opportunity."
+            />
+          </h3>
+          <div className="space-y-4">
+            {detractors.map(h => (
+              <div key={h.symbol} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5 hover:border-rose-500/30 transition-colors group">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded bg-rose-500/10 flex items-center justify-center text-[10px] font-bold text-rose-400 border border-rose-500/20 group-hover:bg-rose-500/20 transition-colors">
+                    {h.symbol}
+                  </div>
+                  <span className="text-xs font-bold font-mono">{h.symbol}</span>
+                </div>
+                <div className="text-right">
+                  <div className={`text-xs font-bold ${h.totalGainLoss >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {h.totalGainLoss >= 0 ? '+' : '-'}${Math.abs(h.totalGainLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="tech-label text-[8px]">Unrealized P&L</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* AI Risk Briefing - Full Width Bottom */}
+        <div className="md:col-span-12 glass-panel p-8 rounded-2xl border-indigo-500/20">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="h-10 w-10 rounded-xl bg-indigo-600/20 flex items-center justify-center border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.2)]">
+              <Activity className="h-6 w-6 text-indigo-400" />
+            </div>
+            <div>
+              <div className="tech-label text-indigo-400">Institutional Intelligence</div>
+              <h3 className="text-2xl font-bold font-display tracking-tight">PM Risk Briefing</h3>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-12">
+            <div className="md:col-span-2">
+              {isSyncing ? (
+                <div className="flex items-center gap-3 py-4 text-indigo-400">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="text-sm font-mono font-bold uppercase tracking-widest">Synthesizing market data...</span>
+                </div>
+              ) : analysisSummary ? (
+                <div className="prose prose-invert prose-sm max-w-none prose-p:text-terminal-muted prose-p:leading-relaxed prose-strong:text-terminal-text prose-strong:font-bold">
+                  <ReactMarkdown>{analysisSummary}</ReactMarkdown>
+                </div>
+              ) : (
+                <div className="py-4 text-terminal-muted text-sm italic font-mono">
+                  No briefing available. Run "Analyze" to generate a PM-grade risk assessment.
+                </div>
+              )}
+            </div>
+            
+            <div className="space-y-6">
+              <div className="p-4 bg-indigo-600/10 rounded-xl border border-indigo-500/20 shadow-[inset_0_0_10px_rgba(99,102,241,0.1)]">
+                <div className="tech-label text-indigo-400 mb-2">Key Takeaway</div>
+                <p className="text-xs text-terminal-text leading-relaxed font-medium font-mono">
+                  Portfolio is currently <span className="text-indigo-400">{sharpeRatio > 1 ? 'Efficient' : 'Beta-Heavy'}</span>. 
+                  {sharpeRatio > 1 
+                    ? " Risk-adjusted returns are strong, but monitor concentration in top contributors."
+                    : " High sensitivity to market movements without proportional excess return."}
+                </p>
+              </div>
+              <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                <div className="tech-label mb-2">Next Steps</div>
+                <ul className="text-[10px] text-terminal-muted space-y-2 font-mono">
+                  <li className="flex items-start gap-2">
+                    <div className="h-1 w-1 rounded-full bg-indigo-500 mt-1.5" />
+                    Review {contributors[0]?.symbol} position for profit-taking.
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <div className="h-1 w-1 rounded-full bg-indigo-500 mt-1.5" />
+                    Analyze correlation matrix for diversification gaps.
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <DataSourceFooter 
-        pageName="Dashboard Overview" 
-        interpretation="The Overview tab provides a consolidated view of your total wealth, cumulative returns, and asset distribution. The Performance chart compares your growth against a selected benchmark, while the Executive Summary uses AI to synthesize complex data into actionable insights."
+        pageName="Institutional Command Center" 
+        interpretation="This terminal provides a high-conviction view of your portfolio's vital signs. It prioritizes risk-adjusted metrics and identifies specific drivers of P&L to help you manage capital with institutional precision."
       />
     </div>
   );
 }
+

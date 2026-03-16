@@ -1,5 +1,4 @@
 import React, { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/Card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { TableHeaderWithTooltip, TableHeaderWithTooltipRight, VisualMetricCell, InfoTooltip } from './shared';
 import { useData } from '../../context/DataContext';
@@ -14,6 +13,7 @@ import {
   calculateVaR,
   calculateCorrelation
 } from '../../utils/financeMath';
+import { ShieldCheck, BarChart3, Target, Info, ChevronDown, ArrowUpRight, ArrowDownRight, Search, Filter } from 'lucide-react';
 
 interface DeepDiveTabProps {
   selectedBenchmark: string;
@@ -224,220 +224,308 @@ export const DeepDiveTab: React.FC<DeepDiveTabProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="flex flex-col">
-          <h3 className="text-sm font-bold text-slate-900">Asset Deep-Dive</h3>
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Analyze individual holdings vs. benchmark</p>
+      {/* Header Controls */}
+      <div className="glass-panel p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
+            <Search className="w-5 h-5 text-indigo-400" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white tracking-tight">ASSET DEEP-DIVE</h3>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-mono">Terminal v2.4.0</span>
+              <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+            </div>
+          </div>
         </div>
+
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center bg-slate-100 rounded-lg p-1">
+          {/* Time Range Selector */}
+          <div className="flex items-center bg-black/40 rounded-lg p-1 border border-white/5">
             {['1M', '3M', 'YTD', '1Y', 'ALL'].map((range) => (
               <button
                 key={range}
                 onClick={() => setTimeRange(range)}
-                className={`px-3 py-1 text-xs rounded-md transition-all ${timeRange === range ? 'bg-white shadow-sm font-bold text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`px-3 py-1.5 text-[10px] font-bold rounded-md transition-all tracking-wider ${
+                  timeRange === range 
+                    ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' 
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
               >
                 {range}
               </button>
             ))}
           </div>
-          <div className="flex items-center bg-slate-100 rounded-lg p-1">
+
+          {/* Asset Class Filter */}
+          <div className="flex items-center bg-black/40 rounded-lg p-1 border border-white/5">
+            <div className="px-2 border-r border-white/10 mr-1">
+              <Filter className="w-3 h-3 text-slate-500" />
+            </div>
             {assetClasses.map((ac: string) => (
               <button
                 key={ac}
                 onClick={() => setSelectedAssetClass(ac)}
-                className={`px-3 py-1 text-xs rounded-md transition-all ${selectedAssetClass === ac ? 'bg-white shadow-sm font-bold text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`px-3 py-1.5 text-[10px] font-bold rounded-md transition-all tracking-wider ${
+                  selectedAssetClass === ac 
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
               >
-                {ac}
+                {ac.toUpperCase()}
               </button>
             ))}
           </div>
-          <select
-            value={selectedBenchmark}
-            onChange={(e) => setSelectedBenchmark(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold shadow-sm focus:ring-2 focus:ring-indigo-500/20 outline-none"
-          >
-            {benchmarks.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-          </select>
+
+          {/* Benchmark Selector */}
+          <div className="relative">
+            <select
+              value={selectedBenchmark}
+              onChange={(e) => setSelectedBenchmark(e.target.value)}
+              className="appearance-none bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-[10px] font-bold text-white tracking-wider outline-none focus:border-indigo-500/50 transition-colors pr-10 min-w-[160px]"
+            >
+              {benchmarks.map((b) => (
+                <option key={b.id} value={b.id} className="bg-[#0B0E14]">{b.name}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500 pointer-events-none" />
+          </div>
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <div>
-            <CardTitle>Individual ETF Performance Directory</CardTitle>
-            <CardDescription>Detailed metrics for each holding in your portfolio</CardDescription>
+      {/* Holdings Table */}
+      <div className="terminal-card overflow-hidden">
+        <div className="p-4 border-b border-white/5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-indigo-400" />
+            <h4 className="text-[10px] font-bold text-white uppercase tracking-[0.2em]">Holdings Performance Matrix</h4>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto -mx-6">
-            <table className="w-full text-sm text-left">
-              <thead className="text-[10px] uppercase tracking-widest text-slate-400 bg-slate-50/50">
-                <tr>
-                  <TableHeaderWithTooltip label="Symbol" metricKey="Symbol" sortKey="symbol" currentSortField={sortConfig.key} onSort={onSort} />
-                  <TableHeaderWithTooltip label="Asset Class" metricKey="Asset Class" sortKey="assetClass" currentSortField={sortConfig.key} onSort={onSort} />
-                  <TableHeaderWithTooltipRight label="Return" metricKey="Return" sortKey="return1M" currentSortField={sortConfig.key} onSort={onSort} />
-                  <TableHeaderWithTooltipRight label="Volatility" metricKey="Volatility (Ann.)" sortKey="volatility" currentSortField={sortConfig.key} onSort={onSort} />
-                  <TableHeaderWithTooltipRight label="Sharpe" metricKey="Sharpe Ratio" sortKey="sharpeRatio" currentSortField={sortConfig.key} onSort={onSort} />
-                  <TableHeaderWithTooltipRight label="Alpha" metricKey="Alpha (Ann.)" sortKey="alpha" currentSortField={sortConfig.key} onSort={onSort} />
-                  <TableHeaderWithTooltipRight label="Beta" metricKey="Beta" sortKey="beta" currentSortField={sortConfig.key} onSort={onSort} />
-                  <TableHeaderWithTooltipRight label="Yield" metricKey="Dividend Yield" sortKey="yield" currentSortField={sortConfig.key} onSort={onSort} />
-                  <TableHeaderWithTooltipRight label="Exp. Ratio" metricKey="Expense Ratio" sortKey="expenseRatio" currentSortField={sortConfig.key} onSort={onSort} />
-                  <TableHeaderWithTooltipRight label="Market Cap" metricKey="Market Cap" sortKey="marketCap" currentSortField={sortConfig.key} onSort={onSort} />
-                  <TableHeaderWithTooltipRight label="Corr." metricKey="Correlation to Benchmark" sortKey="correlation" currentSortField={sortConfig.key} onSort={onSort} />
-                  <TableHeaderWithTooltipRight label="TE" metricKey="Tracking Error" sortKey="trackingError" currentSortField={sortConfig.key} onSort={onSort} />
-                  <TableHeaderWithTooltipRight label="VaR (95%)" metricKey="VaR (95%)" sortKey="var95" currentSortField={sortConfig.key} onSort={onSort} />
+          <div className="flex items-center gap-4 text-[10px] font-mono text-slate-500">
+            <span>TOTAL ASSETS: {sortedHoldings.length}</span>
+            <span className="w-1 h-1 rounded-full bg-white/20" />
+            <span>SORT: {sortConfig.key.toUpperCase()}</span>
+          </div>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-white/[0.02]">
+                <TableHeaderWithTooltip label="SYMBOL" metricKey="Symbol" sortKey="symbol" currentSortField={sortConfig.key} onSort={onSort} />
+                <TableHeaderWithTooltip label="ASSET CLASS" metricKey="Asset Class" sortKey="assetClass" currentSortField={sortConfig.key} onSort={onSort} />
+                <TableHeaderWithTooltipRight label="RETURN" metricKey="Return" sortKey="return1M" currentSortField={sortConfig.key} onSort={onSort} />
+                <TableHeaderWithTooltipRight label="VOLATILITY" metricKey="Volatility (Ann.)" sortKey="volatility" currentSortField={sortConfig.key} onSort={onSort} />
+                <TableHeaderWithTooltipRight label="SHARPE" metricKey="Sharpe Ratio" sortKey="sharpeRatio" currentSortField={sortConfig.key} onSort={onSort} />
+                <TableHeaderWithTooltipRight label="ALPHA" metricKey="Alpha (Ann.)" sortKey="alpha" currentSortField={sortConfig.key} onSort={onSort} />
+                <TableHeaderWithTooltipRight label="BETA" metricKey="Beta" sortKey="beta" currentSortField={sortConfig.key} onSort={onSort} />
+                <TableHeaderWithTooltipRight label="YIELD" metricKey="Dividend Yield" sortKey="yield" currentSortField={sortConfig.key} onSort={onSort} />
+                <TableHeaderWithTooltipRight label="EXP. RATIO" metricKey="Expense Ratio" sortKey="expenseRatio" currentSortField={sortConfig.key} onSort={onSort} />
+                <TableHeaderWithTooltipRight label="MARKET CAP" metricKey="Market Cap" sortKey="marketCap" currentSortField={sortConfig.key} onSort={onSort} />
+                <TableHeaderWithTooltipRight label="CORR." metricKey="Correlation to Benchmark" sortKey="correlation" currentSortField={sortConfig.key} onSort={onSort} />
+                <TableHeaderWithTooltipRight label="TE" metricKey="Tracking Error" sortKey="trackingError" currentSortField={sortConfig.key} onSort={onSort} />
+                <TableHeaderWithTooltipRight label="VAR (95%)" metricKey="VaR (95%)" sortKey="var95" currentSortField={sortConfig.key} onSort={onSort} />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {sortedHoldings.map((holding) => (
+                <tr 
+                  key={holding.symbol} 
+                  className={`group transition-colors cursor-pointer ${
+                    selectedETF === holding.symbol 
+                      ? 'bg-indigo-500/10 border-l-2 border-l-indigo-500' 
+                      : 'hover:bg-white/[0.02] border-l-2 border-l-transparent'
+                  }`}
+                  onClick={() => setSelectedETF(holding.symbol)}
+                >
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col">
+                      <span className="font-bold text-white group-hover:text-indigo-400 transition-colors">{holding.symbol}</span>
+                      <span className="text-[9px] text-slate-500 font-mono tracking-tighter">{holding.benchmark}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="px-2 py-0.5 rounded bg-white/5 text-slate-400 text-[9px] font-bold uppercase tracking-wider">
+                      {holding.assetClass}
+                    </span>
+                  </td>
+                  <VisualMetricCell value={holding.return1M} min={-10} max={10} target={0} isPercentage />
+                  <VisualMetricCell value={holding.volatility} min={0} max={40} target={20} isPercentage inverse />
+                  <VisualMetricCell value={holding.sharpeRatio} min={-1} max={3} target={1} />
+                  <VisualMetricCell value={holding.alpha} min={-5} max={5} target={0} isPercentage />
+                  <VisualMetricCell value={holding.beta} min={0} max={2} target={1} inverse={holding.beta > 1.2} />
+                  <VisualMetricCell value={holding.yield} min={0} max={10} target={2} isPercentage />
+                  <VisualMetricCell value={holding.expenseRatio} min={0} max={1} target={0.1} isPercentage inverse />
+                  <td className="px-4 py-3 text-right font-mono text-[10px] text-slate-400">
+                    {holding.marketCap ? `$${(holding.marketCap / 1e9).toFixed(1)}B` : 'N/A'}
+                  </td>
+                  <VisualMetricCell value={holding.correlation} min={0} max={1} target={0.8} />
+                  <VisualMetricCell value={holding.trackingError} min={0} max={10} target={2} isPercentage inverse />
+                  <VisualMetricCell value={holding.var95} min={-5} max={0} target={-2} isPercentage inverse />
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {sortedHoldings.map((holding) => (
-                  <tr 
-                    key={holding.symbol} 
-                    className={`hover:bg-slate-50 transition-colors cursor-pointer ${selectedETF === holding.symbol ? 'bg-indigo-50/50' : ''}`}
-                    onClick={() => setSelectedETF(holding.symbol)}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col">
-                        <span className="font-bold text-slate-900">{holding.symbol}</span>
-                        <span className="text-[10px] text-slate-400 font-mono">{holding.benchmark}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">
-                        {holding.assetClass}
-                      </span>
-                    </td>
-                    <VisualMetricCell value={holding.return1M} min={-10} max={10} target={0} isPercentage />
-                    <VisualMetricCell value={holding.volatility} min={0} max={40} target={20} isPercentage inverse />
-                    <VisualMetricCell value={holding.sharpeRatio} min={-1} max={3} target={1} />
-                    <VisualMetricCell value={holding.alpha} min={-5} max={5} target={0} isPercentage />
-                    <VisualMetricCell value={holding.beta} min={0} max={2} target={1} inverse={holding.beta > 1.2} />
-                    <VisualMetricCell value={holding.yield} min={0} max={10} target={2} isPercentage />
-                    <VisualMetricCell value={holding.expenseRatio} min={0} max={1} target={0.1} isPercentage inverse />
-                    <td className="px-4 py-3 text-right font-mono text-xs text-slate-600">
-                      {holding.marketCap ? `$${(holding.marketCap / 1e9).toFixed(1)}B` : 'N/A'}
-                    </td>
-                    <VisualMetricCell value={holding.correlation} min={0} max={1} target={0.8} />
-                    <VisualMetricCell value={holding.trackingError} min={0} max={10} target={2} isPercentage inverse />
-                    <VisualMetricCell value={holding.var95} min={-5} max={0} target={-2} isPercentage inverse />
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
+      {/* ETF Analysis Section */}
       {selectedETF && (
-        <Card className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  {selectedETF} vs. {selectedBenchmarkName}
-                  <InfoTooltip 
-                    title="Price History" 
-                    description="Visualizes the growth of $100 invested in the selected ETF vs. its benchmark." 
-                    lookFor="Divergence between the lines indicates Alpha (outperformance) or Beta (sensitivity) differences."
-                  />
-                </CardTitle>
-                <CardDescription>Historical Price Comparison (Normalized)</CardDescription>
+        <div className="terminal-card animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden">
+          <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
+                <Target className="w-4 h-4 text-indigo-400" />
               </div>
-              <button 
-                onClick={() => setSelectedETF(null)}
-                className="text-xs font-bold text-indigo-600 hover:text-indigo-800"
-              >
-                Close Analysis
-              </button>
+              <div>
+                <h4 className="text-[10px] font-bold text-white uppercase tracking-[0.2em]">
+                  {selectedETF} <span className="text-slate-500 mx-2">VS</span> {selectedBenchmarkName}
+                </h4>
+                <p className="text-[9px] text-slate-500 font-mono">COMPARATIVE PERFORMANCE ANALYSIS</p>
+              </div>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={etfChartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis 
-                      dataKey="displayDate" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: '#64748b', fontSize: 11 }}
-                      minTickGap={30}
-                    />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: '#64748b', fontSize: 11 }}
-                      domain={['auto', 'auto']}
-                    />
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                    />
-                    <Legend verticalAlign="top" height={36} iconType="circle" />
-                    <Line 
-                      type="monotone" 
-                      dataKey={selectedETF} 
-                      stroke="#6366f1" 
-                      strokeWidth={3} 
-                      dot={false} 
-                      activeDot={{ r: 6, strokeWidth: 0 }} 
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey={selectedBenchmarkName} 
-                      stroke="#94a3b8" 
-                      strokeWidth={2} 
-                      strokeDasharray="5 5" 
-                      dot={false} 
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+            <button 
+              onClick={() => setSelectedETF(null)}
+              className="px-3 py-1.5 rounded bg-rose-500/10 text-rose-400 text-[9px] font-bold uppercase tracking-widest border border-rose-500/20 hover:bg-rose-500/20 transition-all"
+            >
+              TERMINATE ANALYSIS
+            </button>
+          </div>
+
+          <div className="p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Chart Section */}
+              <div className="lg:col-span-2 space-y-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-indigo-500" />
+                      <span className="text-[10px] font-bold text-white uppercase tracking-wider">{selectedETF}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full border border-slate-500 border-dashed" />
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{selectedBenchmarkName}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Info className="w-3 h-3 text-slate-500" />
+                    <span className="text-[9px] text-slate-500 uppercase tracking-tighter">REBASED TO 100</span>
+                  </div>
+                </div>
+                
+                <div className="h-[350px] w-full bg-black/20 rounded-xl p-4 border border-white/5">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={etfChartData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                      <XAxis 
+                        dataKey="displayDate" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: '#64748b', fontSize: 10, fontFamily: 'JetBrains Mono' }}
+                        minTickGap={30}
+                      />
+                      <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: '#64748b', fontSize: 10, fontFamily: 'JetBrains Mono' }}
+                        domain={['auto', 'auto']}
+                        tickFormatter={(val) => val.toFixed(0)}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#151921', 
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: '8px',
+                          fontSize: '10px',
+                          fontFamily: 'JetBrains Mono'
+                        }}
+                        itemStyle={{ color: '#fff' }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey={selectedETF} 
+                        stroke="#6366f1" 
+                        strokeWidth={3} 
+                        dot={false} 
+                        activeDot={{ r: 4, strokeWidth: 0, fill: '#6366f1' }} 
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey={selectedBenchmarkName} 
+                        stroke="#64748b" 
+                        strokeWidth={2} 
+                        strokeDasharray="5 5" 
+                        dot={false} 
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
 
-              <div className="space-y-6">
+              {/* Fundamentals & Style Box */}
+              <div className="space-y-8">
                 <div>
-                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Fundamentals</h4>
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-1 h-3 bg-indigo-500 rounded-full" />
+                    <h4 className="text-[10px] font-bold text-white uppercase tracking-[0.2em]">Fundamentals</h4>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                      <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">P/E Ratio</p>
-                      <p className="text-sm font-mono font-bold text-slate-900">{etfFundamentals?.peRatio.toFixed(1)}x</p>
+                    <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                      <p className="text-[9px] font-bold text-slate-500 uppercase mb-1">P/E Ratio</p>
+                      <p className="text-sm font-mono font-bold text-white">{etfFundamentals?.peRatio.toFixed(1)}x</p>
                     </div>
-                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                      <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">P/B Ratio</p>
-                      <p className="text-sm font-mono font-bold text-slate-900">{etfFundamentals?.pbRatio.toFixed(1)}x</p>
+                    <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                      <p className="text-[9px] font-bold text-slate-500 uppercase mb-1">P/B Ratio</p>
+                      <p className="text-sm font-mono font-bold text-white">{etfFundamentals?.pbRatio.toFixed(1)}x</p>
                     </div>
-                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                      <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Yield</p>
-                      <p className="text-sm font-mono font-bold text-emerald-600">{etfFundamentals?.dividendYield.toFixed(2)}%</p>
+                    <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                      <p className="text-[9px] font-bold text-slate-500 uppercase mb-1">Yield</p>
+                      <p className="text-sm font-mono font-bold text-emerald-400">{etfFundamentals?.dividendYield.toFixed(2)}%</p>
                     </div>
-                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                      <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Exp. Ratio</p>
-                      <p className="text-sm font-mono font-bold text-slate-900">{etfFundamentals?.expenseRatio.toFixed(2)}%</p>
+                    <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                      <p className="text-[9px] font-bold text-slate-500 uppercase mb-1">Exp. Ratio</p>
+                      <p className="text-sm font-mono font-bold text-white">{etfFundamentals?.expenseRatio.toFixed(2)}%</p>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Style Box</h4>
-                  <div className="grid grid-cols-3 gap-1 w-32 h-32">
-                    {['Large', 'Mid', 'Small'].map(size => 
-                      ['Value', 'Core', 'Growth'].map(style => {
-                        const isActive = etfFundamentals?.styleBox.size === size && etfFundamentals?.styleBox.style === style;
-                        return (
-                          <div 
-                            key={`${size}-${style}`} 
-                            className={`border border-slate-200 rounded-sm flex items-center justify-center transition-all ${isActive ? 'bg-indigo-500 border-indigo-600 shadow-sm scale-105 z-10' : 'bg-slate-50'}`}
-                            title={`${size} ${style}`}
-                          >
-                            {isActive && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
-                          </div>
-                        );
-                      })
-                    )}
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-1 h-3 bg-indigo-500 rounded-full" />
+                    <h4 className="text-[10px] font-bold text-white uppercase tracking-[0.2em]">Morningstar Style</h4>
                   </div>
-                  <div className="flex justify-between w-32 mt-1 text-[8px] font-bold text-slate-400 uppercase">
+                  <div className="flex items-center gap-6">
+                    <div className="grid grid-cols-3 gap-1 w-32 h-32">
+                      {['Large', 'Mid', 'Small'].map(size => 
+                        ['Value', 'Core', 'Growth'].map(style => {
+                          const isActive = etfFundamentals?.styleBox.size === size && etfFundamentals?.styleBox.style === style;
+                          return (
+                            <div 
+                              key={`${size}-${style}`} 
+                              className={`border border-white/10 rounded-sm flex items-center justify-center transition-all ${
+                                isActive 
+                                  ? 'bg-indigo-500 border-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.3)] scale-105 z-10' 
+                                  : 'bg-white/[0.02]'
+                              }`}
+                              title={`${size} ${style}`}
+                            >
+                              {isActive && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-4">
+                      <div className="space-y-1">
+                        <p className="text-[9px] text-slate-500 uppercase font-bold">Size</p>
+                        <p className="text-xs text-white font-bold tracking-wider">{etfFundamentals?.styleBox.size.toUpperCase()}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[9px] text-slate-500 uppercase font-bold">Style</p>
+                        <p className="text-xs text-white font-bold tracking-wider">{etfFundamentals?.styleBox.style.toUpperCase()}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-between w-32 mt-2 text-[8px] font-bold text-slate-500 uppercase tracking-tighter">
                     <span>Value</span>
                     <span>Core</span>
                     <span>Growth</span>
@@ -446,56 +534,71 @@ export const DeepDiveTab: React.FC<DeepDiveTabProps> = ({
               </div>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-slate-100">
-              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Top 5 Holdings</h4>
+            {/* Top Holdings Section */}
+            <div className="mt-10 pt-8 border-t border-white/5">
+              <div className="flex items-center gap-2 mb-6">
+                <div className="w-1 h-3 bg-indigo-500 rounded-full" />
+                <h4 className="text-[10px] font-bold text-white uppercase tracking-[0.2em]">Top 5 Underlying Assets</h4>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
                 {etfFundamentals?.topHoldings.map(h => (
-                  <div key={h.name} className="p-3 rounded-xl border border-slate-100 bg-white shadow-sm">
-                    <p className="text-[10px] font-bold text-slate-900 truncate mb-1">{h.name}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono font-bold text-indigo-600">{h.weight.toFixed(1)}%</span>
-                      <div className="w-12 h-1 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-indigo-500" style={{ width: `${h.weight * 5}%` }} />
+                  <div key={h.name} className="p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-all group">
+                    <p className="text-[10px] font-bold text-white truncate mb-2 group-hover:text-indigo-400 transition-colors">{h.name.toUpperCase()}</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono font-bold text-indigo-400">{h.weight.toFixed(1)}%</span>
+                        <span className="text-[8px] text-slate-500 font-bold uppercase tracking-tighter">WEIGHT</span>
+                      </div>
+                      <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" 
+                          style={{ width: `${h.weight * 5}%` }} 
+                        />
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            Benchmark Directory
-            <InfoTooltip 
-              title="Benchmarks" 
-              description="Standard indices used to measure the relative performance of your assets." 
-              lookFor="Different assets are compared against different benchmarks (e.g., SPY for US Equities, AGG for Bonds)."
-            />
-          </CardTitle>
-          <CardDescription>Reference indices used for relative performance tracking</CardDescription>
-        </CardHeader>
-        <CardContent>
+      {/* Benchmark Directory */}
+      <div className="terminal-card">
+        <div className="p-4 border-b border-white/5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <h4 className="text-[10px] font-bold text-white uppercase tracking-[0.2em]">Benchmark Registry</h4>
+          </div>
+          <InfoTooltip 
+            title="Benchmarks" 
+            description="Standard indices used to measure the relative performance of your assets." 
+            lookFor="Different assets are compared against different benchmarks (e.g., SPY for US Equities, AGG for Bonds)."
+          />
+        </div>
+        <div className="p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {benchmarks.map(b => (
-              <div key={b.id} className="p-4 rounded-2xl border border-slate-100 bg-slate-50/30">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-indigo-600 font-mono">{b.id}</span>
+              <div key={b.id} className="p-4 rounded-xl border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] transition-all group">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 text-[10px] font-bold font-mono border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-all">
+                    {b.id}
+                  </span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/50" />
                 </div>
-                <p className="text-sm font-bold text-slate-900 mb-1">{b.name}</p>
+                <p className="text-xs font-bold text-white mb-2 tracking-tight group-hover:text-indigo-400 transition-colors uppercase">{b.name}</p>
                 {b.marketCap && (
-                  <p className="text-[10px] text-slate-500 leading-tight">
-                    Market Cap: ${(b.marketCap / 1e9).toFixed(1)}B
-                  </p>
+                  <div className="flex items-center justify-between mt-auto pt-2 border-t border-white/5">
+                    <span className="text-[8px] text-slate-500 font-bold uppercase tracking-tighter">MARKET CAP</span>
+                    <span className="text-[10px] text-slate-400 font-mono">${(b.marketCap / 1e9).toFixed(1)}B</span>
+                  </div>
                 )}
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };

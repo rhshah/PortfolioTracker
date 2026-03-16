@@ -119,80 +119,99 @@ export function AIAssistant() {
   };
 
   return (
-    <Card className="flex flex-col h-[600px] border-slate-200 shadow-sm">
-      <CardHeader className="border-b border-slate-100 pb-4 bg-white rounded-t-xl">
-        <CardTitle className="flex items-center gap-2 text-slate-800">
-          <Bot className="h-5 w-5 text-indigo-600" />
-          Portfolio Assistant
-        </CardTitle>
-        <CardDescription>Ask questions about your ETF performance, allocations, or transaction history.</CardDescription>
-      </CardHeader>
-      <CardContent className="flex-1 overflow-y-auto p-4 space-y-6 bg-slate-50/50">
+    <div className="terminal-card flex flex-col h-[600px] md:h-[700px] animate-slam">
+      <div className="p-6 border-b border-white/10 bg-white/[0.02] flex flex-row items-center justify-between">
+        <div>
+          <div className="tech-label text-indigo-400 mb-1">Neural Interface</div>
+          <h3 className="text-xl font-bold font-display tracking-tight flex items-center gap-3">
+            <Bot className="h-5 w-5 text-indigo-400" />
+            Portfolio Assistant
+          </h3>
+          <p className="text-[10px] text-terminal-muted uppercase font-bold mt-1 tracking-widest">
+            Gemini 3.1 Flash • Real-time Portfolio Context
+          </p>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-white/10">
         {messages.map((msg) => (
           <div
             key={msg.id}
-            className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            className={`flex gap-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             {msg.role === 'assistant' && (
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 shadow-sm">
-                <Bot className="h-5 w-5" />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.2)]">
+                <Bot className="h-4 w-4" />
               </div>
             )}
             <div
-              className={`rounded-2xl px-4 py-3 max-w-[85%] shadow-sm ${
+              className={`rounded-2xl px-5 py-4 max-w-[85%] md:max-w-[75%] border transition-all duration-300 ${
                 msg.role === 'user'
-                  ? 'bg-indigo-600 text-white rounded-br-sm'
-                  : 'bg-white border border-slate-100 text-slate-800 rounded-bl-sm'
+                  ? 'bg-indigo-600/10 border-indigo-500/30 text-terminal-text rounded-tr-none shadow-[0_0_15px_rgba(99,102,241,0.1)]'
+                  : 'bg-white/[0.03] border-white/10 text-terminal-muted rounded-tl-none'
               }`}
             >
               {msg.role === 'assistant' ? (
-                <div className="prose prose-sm prose-slate max-w-none">
+                <div className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-p:text-terminal-muted prose-strong:text-terminal-text prose-code:text-indigo-400">
                   <ReactMarkdown>{msg.content}</ReactMarkdown>
                 </div>
               ) : (
-                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                <p className="text-sm font-mono leading-relaxed">{msg.content}</p>
               )}
             </div>
             {msg.role === 'user' && (
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-600 shadow-sm">
-                <User className="h-5 w-5" />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/10 text-terminal-muted">
+                <User className="h-4 w-4" />
               </div>
             )}
           </div>
         ))}
         {isLoading && (
-          <div className="flex gap-3 justify-start">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 shadow-sm">
-              <Bot className="h-5 w-5" />
+          <div className="flex gap-4 justify-start">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+              <Bot className="h-4 w-4" />
             </div>
-            <div className="rounded-2xl px-4 py-3 bg-white border border-slate-100 text-slate-800 rounded-bl-sm flex items-center shadow-sm">
-              <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+            <div className="rounded-2xl px-5 py-4 bg-white/[0.03] border border-white/10 rounded-tl-none flex items-center">
+              <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
+              <span className="ml-3 text-[10px] font-mono text-terminal-muted uppercase tracking-widest animate-pulse">Processing...</span>
             </div>
           </div>
         )}
         <div ref={messagesEndRef} />
-      </CardContent>
-      <div className="p-4 border-t border-slate-100 bg-white rounded-b-xl">
+      </div>
+
+      <div className="p-6 border-t border-white/10 bg-white/[0.01]">
         <div className="flex gap-3 items-end">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask about your portfolio..."
-            className="flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm shadow-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-indigo-600 disabled:cursor-not-allowed disabled:opacity-50 min-h-[44px] max-h-[120px]"
-            rows={1}
-          />
-          <Button onClick={handleSend} disabled={isLoading || !input.trim()} size="icon" className="shrink-0 h-11 w-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 shadow-sm">
+          <div className="flex-1 relative">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Query portfolio data..."
+              className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.02] px-5 py-4 text-sm font-mono text-terminal-text placeholder:text-white/20 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 transition-all min-h-[56px] max-h-[150px]"
+              rows={1}
+            />
+            <div className="absolute right-4 bottom-4 text-[8px] font-mono text-white/10 uppercase hidden md:block">
+              Shift + Enter for new line
+            </div>
+          </div>
+          <Button 
+            onClick={handleSend} 
+            disabled={isLoading || !input.trim()} 
+            size="icon" 
+            className="shrink-0 h-[56px] w-[56px] rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.3)] transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
+          >
             <Send className="h-5 w-5" />
           </Button>
         </div>
       </div>
-      <div className="px-4 pb-4">
+
+      <div className="px-6 pb-6">
         <DataSourceFooter 
           pageName="AI Portfolio Assistant" 
           interpretation="The AI Assistant provides real-time answers to your portfolio questions. It has access to your current holdings and transaction history, allowing it to perform custom calculations, explain risk metrics, or summarize your asset allocation in plain English."
         />
       </div>
-    </Card>
+    </div>
   );
 }

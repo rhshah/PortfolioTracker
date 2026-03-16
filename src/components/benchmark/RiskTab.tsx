@@ -226,18 +226,18 @@ export const RiskTab: React.FC<RiskTabProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="flex flex-col">
-          <h3 className="text-sm font-bold text-slate-900">Risk Parameters</h3>
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Adjust risk analysis window</p>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-panel p-6 rounded-2xl border border-white/10">
+        <div>
+          <div className="tech-label text-indigo-400 mb-1">Risk Parameters</div>
+          <p className="text-[10px] text-terminal-muted uppercase tracking-widest font-bold">Adjust risk analysis window</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center bg-slate-100 rounded-lg p-1">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center bg-white/5 rounded-lg p-1 border border-white/5">
             {['1M', '3M', 'YTD', '1Y', 'ALL'].map((range) => (
               <button
                 key={range}
                 onClick={() => setTimeRange(range)}
-                className={`px-3 py-1 text-xs rounded-md transition-all ${timeRange === range ? 'bg-white shadow-sm font-bold text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`px-4 py-1.5 text-[10px] font-bold rounded-md transition-all uppercase tracking-wider ${timeRange === range ? 'bg-indigo-600 text-white shadow-lg' : 'text-terminal-muted hover:text-terminal-text'}`}
               >
                 {range}
               </button>
@@ -246,93 +246,97 @@ export const RiskTab: React.FC<RiskTabProps> = ({
           <select
             value={selectedBenchmark}
             onChange={(e) => setSelectedBenchmark(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold shadow-sm focus:ring-2 focus:ring-indigo-500/20 outline-none"
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-1.5 text-[10px] font-bold text-terminal-text shadow-sm focus:ring-2 focus:ring-indigo-500/20 outline-none uppercase tracking-wider"
           >
             {benchmarks.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
+              <option key={b.id} value={b.id} className="bg-[#0B0E14]">{b.name}</option>
             ))}
           </select>
         </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Upside / Downside Capture
-              <InfoTooltip 
-                title="Capture Ratios" 
-                description="Measures how much of the benchmark's gains (Upside) and losses (Downside) the portfolio captured." 
-                lookFor="Ideally, Upside > 100% and Downside < 100%. This indicates the portfolio gains more than the market in up periods and loses less in down periods."
-              />
-            </CardTitle>
-            <CardDescription>Relative performance in up vs. down markets</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
+        <div className="terminal-card">
+          <div className="p-6 border-b border-white/10 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-terminal-text uppercase tracking-widest flex items-center gap-2">
+                Upside / Downside Capture
+                <InfoTooltip 
+                  title="Capture Ratios" 
+                  description="Measures how much of the benchmark's gains (Upside) and losses (Downside) the portfolio captured." 
+                  lookFor="Ideally, Upside > 100% and Downside < 100%. This indicates the portfolio gains more than the market in up periods and loses less in down periods."
+                />
+              </h3>
+              <p className="text-[10px] text-terminal-muted font-mono mt-1">Relative performance in up vs. down markets</p>
+            </div>
+          </div>
+          <div className="p-6">
+            <div className="space-y-8">
               <div className="flex items-center justify-between">
                 <div className="flex flex-col">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Upside Capture</span>
-                  <span className="text-2xl font-mono font-bold text-emerald-600">{captureRatios.upside.toFixed(1)}%</span>
+                  <span className="tech-label text-terminal-muted mb-1">Upside Capture</span>
+                  <span className="text-3xl font-mono font-bold text-emerald-400">{captureRatios.upside.toFixed(1)}%</span>
                 </div>
                 <div className="flex flex-col items-end">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Downside Capture</span>
-                  <span className="text-2xl font-mono font-bold text-rose-600">{captureRatios.downside.toFixed(1)}%</span>
+                  <span className="tech-label text-terminal-muted mb-1">Downside Capture</span>
+                  <span className="text-3xl font-mono font-bold text-rose-400">{captureRatios.downside.toFixed(1)}%</span>
                 </div>
               </div>
-              <div className="relative h-4 bg-slate-100 rounded-full overflow-hidden flex">
+              <div className="relative h-2 bg-white/5 rounded-full overflow-hidden flex">
                 <div 
-                  className="h-full bg-emerald-500 transition-all duration-1000" 
+                  className="h-full bg-emerald-500/80 transition-all duration-1000" 
                   style={{ width: `${Math.min(100, captureRatios.upside / 2)}%` }} 
                 />
-                <div className="w-0.5 h-full bg-white z-10" />
+                <div className="w-0.5 h-full bg-white/20 z-10" />
                 <div 
-                  className="h-full bg-rose-500 transition-all duration-1000" 
+                  className="h-full bg-rose-500/80 transition-all duration-1000" 
                   style={{ width: `${Math.min(100, captureRatios.downside / 2)}%` }} 
                 />
               </div>
-              <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
+              <div className="flex justify-between text-[9px] text-terminal-muted font-bold uppercase tracking-widest">
                 <span>More Aggressive</span>
-                <span>Benchmark (100%)</span>
+                <span className="text-indigo-400">Benchmark (100%)</span>
                 <span>More Defensive</span>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Risk vs. Reward Profile
-              <InfoTooltip 
-                title="Risk vs. Reward" 
-                description="Visualizes the relationship between market sensitivity (Beta) and recent performance." 
-                lookFor="Assets in the top-left are 'low risk, high reward' (Alpha generators). Top-right are 'high risk, high reward'."
-              />
-            </CardTitle>
-            <CardDescription>Beta (Market Sensitivity) vs. 1M Return</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <div className="terminal-card">
+          <div className="p-6 border-b border-white/10 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-terminal-text uppercase tracking-widest flex items-center gap-2">
+                Risk vs. Reward Profile
+                <InfoTooltip 
+                  title="Risk vs. Reward" 
+                  description="Visualizes the relationship between market sensitivity (Beta) and recent performance." 
+                  lookFor="Assets in the top-left are 'low risk, high reward' (Alpha generators). Top-right are 'high risk, high reward'."
+                />
+              </h3>
+              <p className="text-[10px] text-terminal-muted font-mono mt-1">Beta (Market Sensitivity) vs. 1M Return</p>
+            </div>
+          </div>
+          <div className="p-6">
             <div className="h-[350px] w-full relative">
               {/* Quadrant Labels */}
-              <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 pointer-events-none opacity-[0.03] p-10">
-                <div className="flex items-start justify-start border-r border-b border-slate-900">
-                  <span className="text-[40px] font-black uppercase tracking-tighter">Alpha Zone</span>
+              <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 pointer-events-none opacity-[0.05] p-10">
+                <div className="flex items-start justify-start border-r border-b border-white">
+                  <span className="text-[32px] font-black uppercase tracking-tighter">Alpha Zone</span>
                 </div>
-                <div className="flex items-start justify-end border-b border-slate-900">
-                  <span className="text-[40px] font-black uppercase tracking-tighter">Aggressive</span>
+                <div className="flex items-start justify-end border-b border-white">
+                  <span className="text-[32px] font-black uppercase tracking-tighter">Aggressive</span>
                 </div>
-                <div className="flex items-end justify-start border-r border-slate-900">
-                  <span className="text-[40px] font-black uppercase tracking-tighter">Defensive</span>
+                <div className="flex items-end justify-start border-r border-white">
+                  <span className="text-[32px] font-black uppercase tracking-tighter">Defensive</span>
                 </div>
                 <div className="flex items-end justify-end">
-                  <span className="text-[40px] font-black uppercase tracking-tighter">Laggards</span>
+                  <span className="text-[32px] font-black uppercase tracking-tighter">Laggards</span>
                 </div>
               </div>
 
               <ResponsiveContainer width="100%" height="100%">
                 <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis 
                     type="number" 
                     dataKey="beta" 
@@ -341,9 +345,9 @@ export const RiskTab: React.FC<RiskTabProps> = ({
                     domain={[0, 2]}
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 11 }}
+                    tick={{ fill: '#8E9299', fontSize: 10, fontFamily: 'JetBrains Mono' }}
                   >
-                    <Label value="Beta (Market Sensitivity)" offset={-10} position="insideBottom" style={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600, textTransform: 'uppercase' }} />
+                    <Label value="Beta (Market Sensitivity)" offset={-10} position="insideBottom" style={{ fill: '#8E9299', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }} />
                   </XAxis>
                   <YAxis 
                     type="number" 
@@ -352,37 +356,37 @@ export const RiskTab: React.FC<RiskTabProps> = ({
                     unit="%" 
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 11 }}
+                    tick={{ fill: '#8E9299', fontSize: 10, fontFamily: 'JetBrains Mono' }}
                   >
-                    <Label value="1M Return (%)" angle={-90} position="insideLeft" style={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600, textTransform: 'uppercase' }} />
+                    <Label value="1M Return (%)" angle={-90} position="insideLeft" style={{ fill: '#8E9299', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }} />
                   </YAxis>
                   <ZAxis type="number" dataKey="marketCap" range={[100, 800]} name="Market Cap" />
                   <Tooltip 
-                    cursor={{ strokeDasharray: '3 3' }}
+                    cursor={{ strokeDasharray: '3 3', stroke: 'rgba(255,255,255,0.2)' }}
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
                         return (
-                          <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-xl">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="font-bold text-indigo-600">{data.symbol}</p>
-                              {data.isBenchmark && <span className="text-[8px] bg-slate-900 text-white px-1 rounded">BENCHMARK</span>}
+                          <div className="bg-[#151921] p-4 border border-white/10 rounded-xl shadow-2xl backdrop-blur-md">
+                            <div className="flex items-center gap-3 mb-2">
+                              <p className="font-bold text-indigo-400 font-mono">{data.symbol}</p>
+                              {data.isBenchmark && <span className="text-[8px] bg-white text-black px-1.5 py-0.5 rounded font-bold uppercase tracking-tighter">BENCHMARK</span>}
                             </div>
-                            <p className="text-[10px] text-slate-400 uppercase font-bold mb-2">{data.assetClass}</p>
-                            <div className="space-y-1 text-xs">
-                              <div className="flex justify-between gap-4">
-                                <span className="text-slate-500">Beta:</span>
-                                <span className="font-mono font-bold">{data.beta?.toFixed(2) || '0.00'}</span>
+                            <p className="text-[9px] text-terminal-muted uppercase font-bold mb-3 tracking-widest">{data.assetClass}</p>
+                            <div className="space-y-2 text-[11px] font-mono">
+                              <div className="flex justify-between gap-6 border-b border-white/5 pb-1">
+                                <span className="text-terminal-muted">Beta:</span>
+                                <span className="font-bold text-terminal-text">{data.beta?.toFixed(2) || '0.00'}</span>
                               </div>
-                              <div className="flex justify-between gap-4">
-                                <span className="text-slate-500">Return:</span>
-                                <span className={`font-mono font-bold ${(data.return1M || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                              <div className="flex justify-between gap-6 border-b border-white/5 pb-1">
+                                <span className="text-terminal-muted">Return:</span>
+                                <span className={`font-bold ${(data.return1M || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                   {data.return1M?.toFixed(2) || '0.00'}%
                                 </span>
                               </div>
-                              <div className="flex justify-between gap-4">
-                                <span className="text-slate-500">Sharpe:</span>
-                                <span className="font-mono font-bold">{data.sharpeRatio?.toFixed(2) || 'N/A'}</span>
+                              <div className="flex justify-between gap-6">
+                                <span className="text-terminal-muted">Sharpe:</span>
+                                <span className="font-bold text-indigo-400">{data.sharpeRatio?.toFixed(2) || 'N/A'}</span>
                               </div>
                             </div>
                           </div>
@@ -391,23 +395,23 @@ export const RiskTab: React.FC<RiskTabProps> = ({
                       return null;
                     }}
                   />
-                  <ReferenceLine x={1} stroke="#64748b" strokeWidth={1} strokeDasharray="3 3">
-                    <Label value="Market Beta" position="top" style={{ fill: '#64748b', fontSize: 9, fontWeight: 700 }} />
+                  <ReferenceLine x={1} stroke="rgba(99, 102, 241, 0.5)" strokeWidth={1} strokeDasharray="5 5">
+                    <Label value="Market Beta" position="top" style={{ fill: '#6366f1', fontSize: 9, fontWeight: 700, textTransform: 'uppercase' }} />
                   </ReferenceLine>
-                  <ReferenceLine y={0} stroke="#64748b" strokeWidth={1} strokeDasharray="3 3" />
+                  <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" strokeWidth={1} strokeDasharray="3 3" />
                   <Scatter name="ETFs" data={scatterData}>
                     {scatterData.map((entry, index) => (
                       <Cell 
                         key={`cell-${index}`} 
                         fill={
-                          entry.isBenchmark ? '#000000' :
+                          entry.isBenchmark ? '#FFFFFF' :
                           entry.assetClass === 'US Equity' ? '#6366f1' :
                           entry.assetClass === 'Intl Equity' ? '#8b5cf6' :
                           entry.assetClass === 'Fixed Income' ? '#10b981' :
                           entry.assetClass === 'Real Estate' ? '#f59e0b' :
                           '#64748b'
                         }
-                        stroke={entry.isBenchmark ? '#ffffff' : 'none'}
+                        stroke={entry.isBenchmark ? '#6366f1' : 'none'}
                         strokeWidth={entry.isBenchmark ? 2 : 0}
                         className="transition-all duration-300 hover:opacity-80 cursor-pointer"
                       />
@@ -416,121 +420,125 @@ export const RiskTab: React.FC<RiskTabProps> = ({
                 </ScatterChart>
               </ResponsiveContainer>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Scenario Stress Test
-              <InfoTooltip 
-                title="Scenario Analysis" 
-                description="Estimates how your portfolio might perform under specific historical or hypothetical market shocks." 
-                lookFor="Review the potential losses to ensure they align with your risk tolerance."
-              />
-            </CardTitle>
-            <CardDescription>Estimated portfolio impact based on current Beta ({portfolioBeta.toFixed(2)})</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+        <div className="terminal-card">
+          <div className="p-6 border-b border-white/10 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-terminal-text uppercase tracking-widest flex items-center gap-2">
+                Scenario Stress Test
+                <InfoTooltip 
+                  title="Scenario Analysis" 
+                  description="Estimates how your portfolio might perform under specific historical or hypothetical market shocks." 
+                  lookFor="Review the potential losses to ensure they align with your risk tolerance."
+                />
+              </h3>
+              <p className="text-[10px] text-terminal-muted font-mono mt-1">Estimated portfolio impact based on current Beta ({portfolioBeta.toFixed(2)})</p>
+            </div>
+          </div>
+          <div className="p-6">
+            <div className="space-y-5">
               {scenarioAnalysis.map(s => (
-                <div key={s.name} className="p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors group relative">
-                  <div className="flex justify-between items-start mb-1">
-                    <span className="text-xs font-bold text-slate-900">{s.name}</span>
-                    <span className="text-sm font-mono font-bold text-rose-600">{s.estimatedLoss.toFixed(1)}%</span>
+                <div key={s.name} className="p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors group relative">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-xs font-bold text-terminal-text uppercase tracking-wider">{s.name}</span>
+                    <span className="text-sm font-mono font-bold text-rose-400">{s.estimatedLoss.toFixed(1)}%</span>
                   </div>
-                  <p className="text-[10px] text-slate-500 leading-tight">
+                  <p className="text-[10px] text-terminal-muted leading-relaxed font-mono">
                     {s.description}
                   </p>
-                  <div className="mt-2 w-full h-1 bg-slate-200 rounded-full overflow-hidden">
+                  <div className="mt-3 w-full h-1 bg-white/5 rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-rose-500" 
+                      className="h-full bg-rose-500/60" 
                       style={{ width: `${Math.min(100, Math.abs(s.estimatedLoss))}%` }} 
                     />
                   </div>
                 </div>
               ))}
-              <div className="pt-4 border-t border-slate-100">
-                <div className="flex items-center gap-2 text-[10px] text-slate-400 italic">
-                  <Info className="h-3 w-3" />
+              <div className="pt-4 border-t border-white/10">
+                <div className="flex items-center gap-2 text-[9px] text-terminal-muted italic font-mono">
+                  <Info className="h-3 w-3 text-indigo-400" />
                   <span>Estimates assume linear beta relationship. Idiosyncratic risk not included.</span>
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Tax Impact Analysis
-              <InfoTooltip 
-                title="Tax-Efficient Rebalancing" 
-                description="Estimates potential tax liabilities if you were to sell positions to rebalance your portfolio." 
-                lookFor="High unrealized gains in short-term holdings create the largest tax drag. Consider tax-loss harvesting to offset these."
-              />
-            </CardTitle>
-            <CardDescription>Estimated tax drag on rebalancing (15% LT / 25% ST)</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Unrealized Gain</p>
-                  <p className="text-lg font-mono font-bold text-emerald-600">
+        <div className="terminal-card">
+          <div className="p-6 border-b border-white/10 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-terminal-text uppercase tracking-widest flex items-center gap-2">
+                Tax Impact Analysis
+                <InfoTooltip 
+                  title="Tax-Efficient Rebalancing" 
+                  description="Estimates potential tax liabilities if you were to sell positions to rebalance your portfolio." 
+                  lookFor="High unrealized gains in short-term holdings create the largest tax drag. Consider tax-loss harvesting to offset these."
+                />
+              </h3>
+              <p className="text-[10px] text-terminal-muted font-mono mt-1">Estimated tax drag on rebalancing (15% LT / 25% ST)</p>
+            </div>
+          </div>
+          <div className="p-6">
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4 mb-2">
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                  <p className="tech-label text-terminal-muted mb-2">Total Unrealized Gain</p>
+                  <p className="text-xl font-mono font-bold text-emerald-400">
                     ${taxAnalysis?.reduce((sum: number, i: any) => sum + Math.max(0, i.unrealizedGain), 0).toLocaleString()}
                   </p>
                 </div>
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Est. Liquidation Tax</p>
-                  <p className="text-lg font-mono font-bold text-rose-600">
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                  <p className="tech-label text-terminal-muted mb-2">Est. Liquidation Tax</p>
+                  <p className="text-xl font-mono font-bold text-rose-400">
                     ${taxAnalysis?.reduce((sum: number, i: any) => sum + i.estTax, 0).toLocaleString()}
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Top Tax Drags</p>
+              <div className="space-y-3">
+                <p className="tech-label text-terminal-muted mb-3">Top Tax Drags</p>
                 {taxAnalysis?.sort((a: any, b: any) => b.estTax - a.estTax).slice(0, 3).map((item: any) => (
-                  <div key={item.symbol} className="flex items-center justify-between p-2 rounded-lg border border-slate-50 bg-white shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-900">{item.symbol}</span>
-                      <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold uppercase ${item.isLongTerm ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                  <div key={item.symbol} className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-terminal-text font-mono">{item.symbol}</span>
+                      <span className={`text-[8px] px-2 py-0.5 rounded font-bold uppercase tracking-widest ${item.isLongTerm ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`}>
                         {item.isLongTerm ? 'Long Term' : 'Short Term'}
                       </span>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs font-mono font-bold text-slate-900">${item.estTax.toFixed(0)}</p>
-                      <p className="text-[9px] text-slate-400">Tax Liability</p>
+                      <p className="text-xs font-mono font-bold text-terminal-text">${item.estTax.toFixed(0)}</p>
+                      <p className="text-[9px] text-terminal-muted uppercase font-bold tracking-tighter">Tax Liability</p>
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="pt-4 border-t border-slate-100">
-                <div className="flex items-start gap-2 text-[10px] text-slate-500 leading-relaxed">
-                  <ShieldCheck className="h-3 w-3 mt-0.5 text-indigo-500 shrink-0" />
+              <div className="pt-4 border-t border-white/10">
+                <div className="flex items-start gap-3 text-[10px] text-terminal-muted leading-relaxed font-mono">
+                  <ShieldCheck className="h-4 w-4 mt-0.5 text-indigo-400 shrink-0" />
                   <span>
                     Analysis based on Investopedia's standard individual rates: 15% for Long-Term (&gt;1yr) and 24% for Short-Term (estimated marginal rate). Actual taxes depend on your specific bracket and state.
                   </span>
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader className="text-center">
-          <CardTitle>Correlation Matrix</CardTitle>
-          <CardDescription>Understanding how your assets move together (1.0 = Perfect Sync, 0 = No Relation)</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center">
+      <div className="terminal-card">
+        <div className="p-8 border-b border-white/10 text-center">
+          <h3 className="text-xl font-bold font-display tracking-tight text-terminal-text">Correlation Matrix</h3>
+          <p className="text-[10px] text-terminal-muted uppercase tracking-widest font-bold mt-1">Understanding how your assets move together (1.0 = Perfect Sync, 0 = No Relation)</p>
+        </div>
+        <div className="p-8 flex flex-col items-center">
           {correlationMatrix && correlationMatrix.symbols && correlationMatrix.symbols.length > 0 ? (
             <div className="w-full max-w-full overflow-x-auto">
               <div className="min-w-[900px] p-4">
                 <div 
-                  className="grid gap-1"
+                  className="grid gap-2"
                   style={{ 
                     gridTemplateColumns: `100px repeat(${correlationMatrix.symbols.length}, 1fr)` 
                   }}
@@ -538,7 +546,7 @@ export const RiskTab: React.FC<RiskTabProps> = ({
                   {/* Header */}
                   <div className="h-10" />
                   {correlationMatrix.symbols.map((s: string) => (
-                    <div key={s} className="h-10 flex items-center justify-center text-[10px] font-bold text-slate-400 uppercase tracking-tighter truncate px-1" title={s}>
+                    <div key={s} className="h-10 flex items-center justify-center text-[10px] font-bold text-terminal-muted uppercase tracking-widest truncate px-1" title={s}>
                       {s}
                     </div>
                   ))}
@@ -546,32 +554,33 @@ export const RiskTab: React.FC<RiskTabProps> = ({
                   {/* Matrix Rows */}
                   {correlationMatrix.symbols.map((s1: string) => (
                     <React.Fragment key={s1}>
-                      <div className="h-12 flex items-center justify-end pr-4 text-[10px] font-bold text-slate-900 uppercase tracking-tighter truncate" title={s1}>
+                      <div className="h-12 flex items-center justify-end pr-6 text-[10px] font-bold text-terminal-text uppercase tracking-widest truncate" title={s1}>
                         {s1}
                       </div>
                       {correlationMatrix.symbols.map((s2: string) => {
                         const corr = correlationMatrix.matrix[s1]?.[s2] ?? 0;
                         const absCorr = Math.abs(corr);
-                        const size = 10 + (absCorr * 30); // Bubble size between 10px and 40px
+                        const size = 12 + (absCorr * 32); // Bubble size between 12px and 44px
                         const color = corr > 0 ? '#6366f1' : '#f43f5e';
-                        const opacity = 0.1 + (absCorr * 0.9);
+                        const opacity = 0.2 + (absCorr * 0.8);
 
                         return (
                           <div 
                             key={s2} 
-                            className="h-12 flex items-center justify-center bg-slate-50/50 rounded-lg border border-white relative group"
+                            className="h-14 flex items-center justify-center bg-white/[0.02] rounded-xl border border-white/5 relative group hover:bg-white/[0.05] transition-colors"
                             title={`${s1} vs ${s2}: ${corr.toFixed(2)}`}
                           >
                             <div 
-                              className="rounded-full transition-all duration-500 ease-out shadow-sm"
+                              className="rounded-full transition-all duration-700 ease-out shadow-lg"
                               style={{ 
                                 width: `${size}px`, 
                                 height: `${size}px`, 
                                 backgroundColor: color,
-                                opacity: opacity
+                                opacity: opacity,
+                                filter: `drop-shadow(0 0 8px ${color}40)`
                               }}
                             />
-                            <span className="absolute inset-0 flex items-center justify-center text-[8px] font-mono font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none drop-shadow-md">
+                            <span className="absolute inset-0 flex items-center justify-center text-[9px] font-mono font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none drop-shadow-md">
                               {corr.toFixed(2)}
                             </span>
                           </div>
@@ -581,36 +590,36 @@ export const RiskTab: React.FC<RiskTabProps> = ({
                   ))}
                 </div>
 
-                <div className="mt-8 flex items-center justify-center gap-8 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 rounded-full bg-slate-300" />
-                      <div className="w-4 h-4 rounded-full bg-slate-300" />
-                      <div className="w-6 h-6 rounded-full bg-slate-300" />
-                    </div>
-                    <span>Strength</span>
-                  </div>
+                <div className="mt-12 flex items-center justify-center gap-12 text-[10px] font-bold uppercase tracking-widest text-terminal-muted">
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-indigo-500" />
-                      <span>Positive</span>
+                      <div className="w-2 h-2 rounded-full bg-white/20" />
+                      <div className="w-4 h-4 rounded-full bg-white/20" />
+                      <div className="w-6 h-6 rounded-full bg-white/20" />
+                    </div>
+                    <span className="font-mono">Strength</span>
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
+                      <span className="font-mono">Positive</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-rose-500" />
-                      <span>Negative</span>
+                      <div className="w-3 h-3 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
+                      <span className="font-mono">Negative</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="h-48 flex flex-col items-center justify-center text-slate-400 italic text-sm gap-2">
-              <Info className="h-5 w-5 opacity-20" />
-              <span>{holdingsData.length > 0 ? "Sync data to generate correlation analysis" : "Add more holdings to see correlation analysis"}</span>
+            <div className="h-48 flex flex-col items-center justify-center text-terminal-muted italic text-sm gap-4">
+              <Info className="h-8 w-8 opacity-20" />
+              <span className="font-mono">{holdingsData.length > 0 ? "Sync data to generate correlation analysis" : "Add more holdings to see correlation analysis"}</span>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };
