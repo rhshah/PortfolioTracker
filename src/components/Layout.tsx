@@ -171,8 +171,40 @@ export function Layout({
         {/* Viewport Container */}
         <main className="flex-1 overflow-hidden relative">
           <div className="absolute inset-0 overflow-y-auto scrollbar-hide p-4 md:p-8 pb-24 md:pb-8">
-            <div className="max-w-[1600px] mx-auto">
-              {children}
+            <div className="max-w-[1600px] mx-auto min-h-full flex flex-col">
+              <div className="flex-1">
+                {children}
+              </div>
+              
+              {/* Terminal Footer */}
+              <footer className="mt-12 pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-terminal-muted">
+                      System Status: Operational
+                    </span>
+                  </div>
+                  <div className="h-4 w-[1px] bg-white/5 hidden md:block" />
+                  <span className="text-[10px] font-mono text-terminal-muted uppercase tracking-widest">
+                    v2.4.0-stable
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 text-[10px] font-mono text-terminal-muted uppercase tracking-widest">
+                  <span>Made by</span>
+                  <a 
+                    href="https://github.com/rhshah" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-indigo-400 hover:text-indigo-300 transition-colors font-bold"
+                  >
+                    Ronak Shah (@rhshah)
+                  </a>
+                  <span>using</span>
+                  <span className="text-terminal-text font-bold">Google AI Studio</span>
+                </div>
+              </footer>
             </div>
           </div>
         </main>

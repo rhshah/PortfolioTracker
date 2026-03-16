@@ -253,14 +253,14 @@ ${reportText}`;
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'overview': return <Overview analysisSummary={analysisSummary} isSyncing={isSyncing} />;
+      case 'overview': return <Overview analysisSummary={analysisSummary} isSyncing={isSyncing} onTabChange={setActiveTab} />;
       case 'holdings': return <Holdings />;
       case 'benchmark': return <BenchmarkComparison />;
       case 'analysis': return <Analysis report={analysisReport} isAnalyzing={isAnalyzing} />;
       case 'transactions': return <Transactions />;
       case 'ai': return <AIAssistant />;
       case 'help': return <Help />;
-      default: return <Overview analysisSummary={analysisSummary} isSyncing={isSyncing} />;
+      default: return <Overview analysisSummary={analysisSummary} isSyncing={isSyncing} onTabChange={setActiveTab} />;
     }
   };
 

@@ -46,11 +46,12 @@ import { DataSourceFooter } from './DataSourceFooter';
 interface OverviewProps {
   analysisSummary?: string | null;
   isSyncing?: boolean;
+  onTabChange: (tab: string) => void;
 }
 
 type TimeRange = '1M' | '3M' | 'YTD' | '1Y' | 'ALL';
 
-export function Overview({ analysisSummary, isSyncing }: OverviewProps) {
+export function Overview({ analysisSummary, isSyncing, onTabChange }: OverviewProps) {
   const { performanceData, holdingsData, transactionsData, benchmarks, riskFreeRate, correlationMatrix } = useData();
   const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
   const [selectedBenchmark] = useState(benchmarks[0].id);
@@ -181,29 +182,39 @@ export function Overview({ analysisSummary, isSyncing }: OverviewProps) {
           <div className="flex items-center justify-between mb-8">
             <div>
               <div className="tech-label mb-1">Performance Attribution</div>
-              <h3 className="text-xl font-bold font-display tracking-tight flex items-center gap-2">
+              <h3 
+                className="text-xl font-bold font-display tracking-tight flex items-center gap-2 cursor-pointer hover:text-indigo-400 transition-colors group"
+                onClick={() => onTabChange('analysis')}
+              >
                 Cumulative Growth vs Benchmark
-                <InfoTooltip 
-                  title="Performance Attribution" 
-                  description="Compares your portfolio's cumulative returns against the primary benchmark over the selected timeframe." 
-                  lookFor="Look for the 'Alpha' gap between the solid portfolio line and the dashed benchmark line."
-                />
+                <ArrowUpRight className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-all" />
               </h3>
             </div>
-            <div className="flex items-center gap-2 bg-white/5 p-1 rounded-lg border border-white/10">
-              {(['1M', '3M', 'YTD', '1Y', 'ALL'] as TimeRange[]).map((range) => (
-                <button
-                  key={range}
-                  onClick={() => setTimeRange(range)}
-                  className={`px-3 py-1 text-[10px] font-mono font-bold rounded-md transition-all ${
-                    timeRange === range 
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' 
-                      : 'text-terminal-muted hover:text-terminal-text'
-                  }`}
-                >
-                  {range}
-                </button>
-              ))}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 bg-white/5 p-1 rounded-lg border border-white/10">
+                {(['1M', '3M', 'YTD', '1Y', 'ALL'] as TimeRange[]).map((range) => (
+                  <button
+                    key={range}
+                    onClick={() => setTimeRange(range)}
+                    className={`px-3 py-1 text-[10px] font-mono font-bold rounded-md transition-all ${
+                      timeRange === range 
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' 
+                        : 'text-terminal-muted hover:text-terminal-text'
+                    }`}
+                  >
+                    {range}
+                  </button>
+                ))}
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => onTabChange('analysis')}
+                className="h-8 px-3 border-white/10 bg-white/5 hover:bg-white/10 text-[10px] font-bold uppercase tracking-widest gap-2"
+              >
+                <Activity className="h-3 w-3" />
+                Deep Analysis
+              </Button>
             </div>
           </div>
 
@@ -332,15 +343,26 @@ export function Overview({ analysisSummary, isSyncing }: OverviewProps) {
         {/* Portfolio Health - Side Span */}
         <div className="md:col-span-4 terminal-card p-6 flex flex-col justify-between">
           <div>
-            <div className="tech-label mb-1">Risk Assessment</div>
-            <h3 className="text-xl font-bold font-display tracking-tight mb-6 flex items-center gap-2">
-              Portfolio Health
-              <InfoTooltip 
-                title="Portfolio Health Score" 
-                description="A proprietary metric (0-100) that synthesizes risk-adjusted returns, volatility, and diversification." 
-                lookFor="Scores above 70 indicate a well-optimized portfolio for the given asset classes."
-              />
-            </h3>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <div className="tech-label mb-1">Risk Assessment</div>
+                <h3 
+                  className="text-xl font-bold font-display tracking-tight flex items-center gap-2 cursor-pointer hover:text-indigo-400 transition-colors group"
+                  onClick={() => onTabChange('benchmark')}
+                >
+                  Portfolio Health
+                  <ArrowUpRight className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-all" />
+                </h3>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => onTabChange('benchmark')}
+                className="h-6 px-2 text-[8px] font-bold uppercase tracking-widest text-terminal-muted hover:text-terminal-text"
+              >
+                Details
+              </Button>
+            </div>
             
             <div className="flex items-center gap-6 mb-8">
               <div className="relative h-24 w-24">
@@ -421,15 +443,26 @@ export function Overview({ analysisSummary, isSyncing }: OverviewProps) {
 
         {/* Asset Allocation - Middle Span */}
         <div className="md:col-span-4 terminal-card p-6">
-          <div className="tech-label mb-1">Exposure Analysis</div>
-          <h3 className="text-lg font-bold font-display tracking-tight mb-4 flex items-center gap-2">
-            Asset Allocation
-            <InfoTooltip 
-              title="Asset Allocation" 
-              description="The breakdown of your portfolio by individual asset classes." 
-              lookFor="Ensure diversification across multiple classes to reduce systemic risk."
-            />
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="tech-label mb-1">Exposure Analysis</div>
+              <h3 
+                className="text-lg font-bold font-display tracking-tight flex items-center gap-2 cursor-pointer hover:text-indigo-400 transition-colors group"
+                onClick={() => onTabChange('holdings')}
+              >
+                Asset Allocation
+                <ArrowUpRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-all" />
+              </h3>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => onTabChange('holdings')}
+              className="h-6 px-2 text-[8px] font-bold uppercase tracking-widest text-terminal-muted hover:text-terminal-text"
+            >
+              Manage
+            </Button>
+          </div>
           
           <div className="h-[200px] w-full mb-6">
             <ResponsiveContainer width="100%" height="100%">
@@ -479,15 +512,26 @@ export function Overview({ analysisSummary, isSyncing }: OverviewProps) {
 
         {/* Top Contributors - Small Span */}
         <div className="md:col-span-4 terminal-card p-6">
-          <div className="tech-label mb-1">Alpha Drivers</div>
-          <h3 className="text-lg font-bold font-display tracking-tight mb-4 flex items-center gap-2">
-            Top Contributors
-            <InfoTooltip 
-              title="Top Contributors" 
-              description="The assets in your portfolio with the highest unrealized P&L. These are your primary performance drivers." 
-              lookFor="If you see negative values here, it means even your best-performing assets are currently below their cost basis due to broader market conditions."
-            />
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="tech-label mb-1">Alpha Drivers</div>
+              <h3 
+                className="text-lg font-bold font-display tracking-tight flex items-center gap-2 cursor-pointer hover:text-emerald-400 transition-colors group"
+                onClick={() => onTabChange('holdings')}
+              >
+                Top Contributors
+                <ArrowUpRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-all" />
+              </h3>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => onTabChange('holdings')}
+              className="h-6 px-2 text-[8px] font-bold uppercase tracking-widest text-terminal-muted hover:text-terminal-text"
+            >
+              View All
+            </Button>
+          </div>
           <div className="space-y-4">
             {contributors.map(h => (
               <div key={h.symbol} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5 hover:border-emerald-500/30 transition-colors group">
@@ -510,15 +554,26 @@ export function Overview({ analysisSummary, isSyncing }: OverviewProps) {
 
         {/* Top Detractors - Small Span */}
         <div className="md:col-span-4 terminal-card p-6">
-          <div className="tech-label mb-1">Risk Detractors</div>
-          <h3 className="text-lg font-bold font-display tracking-tight mb-4 flex items-center gap-2">
-            Top Detractors
-            <InfoTooltip 
-              title="Top Detractors" 
-              description="The assets in your portfolio with the lowest (most negative) unrealized P&L. These represent your current primary performance drags." 
-              lookFor="Review these positions to determine if the underlying thesis has changed or if they present a tax-loss harvesting opportunity."
-            />
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="tech-label mb-1">Risk Detractors</div>
+              <h3 
+                className="text-lg font-bold font-display tracking-tight flex items-center gap-2 cursor-pointer hover:text-rose-400 transition-colors group"
+                onClick={() => onTabChange('holdings')}
+              >
+                Top Detractors
+                <ArrowUpRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-all" />
+              </h3>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => onTabChange('holdings')}
+              className="h-6 px-2 text-[8px] font-bold uppercase tracking-widest text-terminal-muted hover:text-terminal-text"
+            >
+              View All
+            </Button>
+          </div>
           <div className="space-y-4">
             {detractors.map(h => (
               <div key={h.symbol} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5 hover:border-rose-500/30 transition-colors group">
@@ -541,14 +596,31 @@ export function Overview({ analysisSummary, isSyncing }: OverviewProps) {
 
         {/* AI Risk Briefing - Full Width Bottom */}
         <div className="md:col-span-12 glass-panel p-8 rounded-2xl border-indigo-500/20">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="h-10 w-10 rounded-xl bg-indigo-600/20 flex items-center justify-center border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.2)]">
-              <Activity className="h-6 w-6 text-indigo-400" />
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-indigo-600/20 flex items-center justify-center border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.2)]">
+                <Activity className="h-6 w-6 text-indigo-400" />
+              </div>
+              <div>
+                <div className="tech-label text-indigo-400">Institutional Intelligence</div>
+                <h3 
+                  className="text-2xl font-bold font-display tracking-tight cursor-pointer hover:text-indigo-400 transition-colors group flex items-center gap-3"
+                  onClick={() => onTabChange('analysis')}
+                >
+                  PM Risk Briefing
+                  <ArrowUpRight className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-all" />
+                </h3>
+              </div>
             </div>
-            <div>
-              <div className="tech-label text-indigo-400">Institutional Intelligence</div>
-              <h3 className="text-2xl font-bold font-display tracking-tight">PM Risk Briefing</h3>
-            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => onTabChange('analysis')}
+              className="h-10 px-6 border-indigo-500/20 bg-indigo-500/5 hover:bg-indigo-500/10 text-[10px] font-bold uppercase tracking-widest gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              View Full Report
+            </Button>
           </div>
 
           <div className="grid md:grid-cols-3 gap-12">
