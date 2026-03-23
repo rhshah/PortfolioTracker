@@ -1,6 +1,9 @@
 import { format, subYears, parseISO } from 'date-fns';
+import { calculateHoldingsFromTransactions, Transaction, enrichTransactionWithTCA } from '../utils/portfolioMath';
+import { Holding } from '../context/DataContext';
 import { 
-  calculateReturns, 
+  alignTimeSeries,
+  calculateLogReturns,
   calculateVolatility, 
   calculateSharpeRatio, 
   calculateMaxDrawdown, 
@@ -12,7 +15,9 @@ import {
   calculateSortinoRatio,
   calculateTreynorRatio,
   calculateInformationRatio,
-  calculateVaR
+  calculateVaR,
+  calculateParametricVaR,
+  calculateCVaR
 } from '../utils/financeMath';
 
 export async function fetchETFData(symbol: string) {
@@ -27,25 +32,45 @@ export async function fetchETFData(symbol: string) {
     }
     const data = await response.json();
     
-    return data.map((d: any) => ({
+    const mappedData = data.map((d: any) => ({
       date: new Date(d.date).toISOString().split('T')[0],
-      price: d.adjClose || d.close
+      price: d.adjClose || d.close,
+      open: d.open || d.close,
+      high: d.high || d.close,
+      low: d.low || d.close,
+      close: d.close,
+      volume: d.volume || 0
     }))
     .filter((d: any) => d.price !== null && d.price !== undefined)
     .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Deduplicate by date (keep the last entry for each date)
+    const uniqueData = [];
+    let lastDate = '';
+    for (const d of mappedData) {
+      if (d.date !== lastDate) {
+        uniqueData.push(d);
+        lastDate = d.date;
+      } else {
+        uniqueData[uniqueData.length - 1] = d;
+      }
+    }
+    
+    return uniqueData;
   } catch (error) {
     console.error(`Backend fetch failed for ${symbol}:`, error);
     return [];
   }
 }
 
-export async function syncRealData(currentHoldings: any[], existingEtfMetrics: Record<string, any> = {}, benchmarks: any[] = []) {
+export async function syncRealData(currentHoldings: Holding[], transactionsData: Transaction[], existingEtfMetrics: Record<string, any> = {}, benchmarks: any[] = []) {
   // 1. Fetch data for all holdings + all benchmarks + factor benchmarks + ^IRX (Risk-Free Rate)
   const holdingBenchmarkSymbols = Array.from(new Set(currentHoldings.map(h => h.benchmark)));
   const explicitBenchmarkSymbols = benchmarks.map(b => b.id);
   const factorSymbols = ['VTV', 'IWM']; 
   const symbols = Array.from(new Set([
     ...currentHoldings.map(h => h.symbol), 
+    ...transactionsData.map(t => t.symbol), // Ensure we fetch data for all transacted symbols too
     ...holdingBenchmarkSymbols, 
     ...explicitBenchmarkSymbols,
     ...factorSymbols, 
@@ -78,61 +103,60 @@ export async function syncRealData(currentHoldings: any[], existingEtfMetrics: R
   const newPerformanceData = [];
   let currentPortfolioValue = 0;
   
-  // Update Holdings with real current prices
-  const newHoldingsData = currentHoldings.map(holding => {
-    const history = fetchedData[holding.symbol];
-    if (!history || history.length === 0) return holding;
-    
-    const currentPrice = history[history.length - 1].price;
-    const totalValue = currentPrice * holding.qty;
-    const totalGainLoss = totalValue - (holding.purchasePrice * holding.qty);
-    
-    return {
-      ...holding,
-      currentPrice,
-      totalValue,
-      totalGainLoss
-    };
+  // Extract current prices for all symbols
+  const currentPrices: Record<string, number> = {};
+  symbols.forEach(sym => {
+    const history = fetchedData[sym];
+    if (history && history.length > 0) {
+      currentPrices[sym] = history[history.length - 1].price;
+    } else {
+      console.warn(`[syncRealData] No price history found for symbol: ${sym}`);
+    }
   });
+
+  console.log(`[syncRealData] Current Prices:`, currentPrices);
+
+  // Enrich transactions with TCA metrics using historical data
+  const enrichedTransactions = transactionsData.map(tx => {
+    const history = fetchedData[tx.symbol];
+    return enrichTransactionWithTCA(tx, history || []);
+  });
+
+  console.log(`[syncRealData] Calculating holdings from ${enrichedTransactions.length} transactions...`);
+  // Calculate Holdings from Transactions
+  const newHoldingsData = calculateHoldingsFromTransactions(enrichedTransactions, currentHoldings, currentPrices);
+  console.log(`[syncRealData] Calculated ${newHoldingsData.length} active holdings.`);
+  
+  const debugTotalValue = newHoldingsData.reduce((sum, h) => sum + h.totalValue, 0);
+  console.log(`[syncRealData] DEBUG Total Value:`, debugTotalValue);
   
   // Calculate real metrics for each ETF
   const newEtfMetrics: Record<string, any> = {};
-  for (const holding of currentHoldings) {
+  for (const holding of newHoldingsData) {
     const etfHistory = fetchedData[holding.symbol];
     const benchHistory = fetchedData[holding.benchmark];
     
     if (etfHistory && benchHistory && etfHistory.length > 0 && benchHistory.length > 0) {
       // 1. Align data for primary metrics (Asset vs Benchmark)
-      const primaryDates = etfHistory
-        .map(d => d.date)
-        .filter(date => benchHistory.some(bd => bd.date === date))
-        .slice(-252);
-        
-      const etfPrices = primaryDates.map(date => etfHistory.find(d => d.date === date)!.price);
-      const benchPrices = primaryDates.map(date => benchHistory.find(d => d.date === date)!.price);
-      const etfReturns = calculateReturns(etfPrices);
-      const benchReturns = calculateReturns(benchPrices);
+      const { alignedPrices: primaryAligned } = alignTimeSeries(fetchedData, [holding.symbol, holding.benchmark]);
+      const etfPrices = primaryAligned[holding.symbol].slice(-252);
+      const benchPrices = primaryAligned[holding.benchmark].slice(-252);
+      
+      const etfReturns = calculateLogReturns(etfPrices);
+      const benchReturns = calculateLogReturns(benchPrices);
       const beta = calculateBeta(etfReturns, benchReturns);
 
       // 2. Align data for factor metrics (Asset vs SPY, VTV, IWM)
-      const factorDates = etfHistory
-        .map(d => d.date)
-        .filter(date => 
-          spyData.some(sd => sd.date === date) && 
-          valueData.some(vd => vd.date === date) && 
-          sizeData.some(sd => sd.date === date)
-        )
-        .slice(-252);
+      const { alignedPrices: factorAligned } = alignTimeSeries(fetchedData, [holding.symbol, 'SPY', 'VTV', 'IWM']);
+      const etfFactorPrices = factorAligned[holding.symbol].slice(-252);
+      const spyPrices = factorAligned['SPY'].slice(-252);
+      const valuePrices = factorAligned['VTV'].slice(-252);
+      const sizePrices = factorAligned['IWM'].slice(-252);
 
-      const etfFactorPrices = factorDates.map(date => etfHistory.find(d => d.date === date)!.price);
-      const spyPrices = factorDates.map(date => spyData.find(d => d.date === date)!.price);
-      const valuePrices = factorDates.map(date => valueData.find(d => d.date === date)!.price);
-      const sizePrices = factorDates.map(date => sizeData.find(d => d.date === date)!.price);
-
-      const etfFactorReturns = calculateReturns(etfFactorPrices);
-      const spyReturns = calculateReturns(spyPrices);
-      const valueReturns = calculateReturns(valuePrices);
-      const sizeReturns = calculateReturns(sizePrices);
+      const etfFactorReturns = calculateLogReturns(etfFactorPrices);
+      const spyReturns = calculateLogReturns(spyPrices);
+      const valueReturns = calculateLogReturns(valuePrices);
+      const sizeReturns = calculateLogReturns(sizePrices);
       
       const marketBeta = calculateBeta(etfFactorReturns, spyReturns);
       const valueBeta = calculateBeta(etfFactorReturns, valueReturns);
@@ -156,7 +180,8 @@ export async function syncRealData(currentHoldings: any[], existingEtfMetrics: R
         sortinoRatio: calculateSortinoRatio(etfReturns, riskFreeRate),
         treynorRatio: calculateTreynorRatio(etfReturns, beta, riskFreeRate),
         informationRatio: calculateInformationRatio(etfReturns, benchReturns),
-        var95: calculateVaR(etfReturns, 0.95)
+        var95: calculateParametricVaR(etfReturns, 0.95),
+        cvar95: calculateCVaR(etfReturns, 0.95)
       };
     } else {
       // If we couldn't fetch history, preserve existing metrics
@@ -169,24 +194,39 @@ export async function syncRealData(currentHoldings: any[], existingEtfMetrics: R
   const chartDataPoints = spyData.length;
   const chartStartIndex = 0;
 
+  // Pre-build price lookup maps for O(1) access
+  const priceMaps: Record<string, Map<string, number>> = {};
+  symbols.forEach(sym => {
+    const history = fetchedData[sym];
+    const map = new Map<string, number>();
+    if (history) {
+      history.forEach((d: any) => map.set(d.date, d.price));
+    }
+    priceMaps[sym] = map;
+  });
+
+  // Track the last known price for each symbol to handle missing daily data
+  const lastKnownPrices: Record<string, number> = {};
+  symbols.forEach(sym => {
+    lastKnownPrices[sym] = 0;
+    // Initialize with the earliest available price if possible
+    const history = fetchedData[sym];
+    if (history && history.length > 0) {
+      lastKnownPrices[sym] = history[0].price;
+    }
+  });
+
   for (let i = chartStartIndex; i < spyData.length; i++) {
     const date = spyData[i].date;
     let dailyPortfolioValue = 0;
     
-    for (const holding of currentHoldings) {
-      const history = fetchedData[holding.symbol];
-      if (!history || history.length === 0) continue;
-      
-      const dayData = history.find((d: any) => d.date === date);
-      if (dayData) {
-        dailyPortfolioValue += dayData.price * holding.qty;
-      } else {
-        // Fallback to the most recent price before this date
-        const recentHistory = history.filter((h: any) => h.date < date);
-        if (recentHistory.length > 0) {
-          dailyPortfolioValue += recentHistory[recentHistory.length - 1].price * holding.qty;
-        }
+    for (const holding of newHoldingsData) {
+      const price = priceMaps[holding.symbol]?.get(date);
+      if (price !== undefined) {
+        lastKnownPrices[holding.symbol] = price;
       }
+      
+      dailyPortfolioValue += lastKnownPrices[holding.symbol] * holding.qty;
     }
     
     if (i === chartStartIndex) {
@@ -201,55 +241,45 @@ export async function syncRealData(currentHoldings: any[], existingEtfMetrics: R
     // Add all benchmarks
     const initialDate = spyData[chartStartIndex].date;
     symbols.forEach(symbol => {
-      const history = fetchedData[symbol];
-      if (history && history.length > 0) {
-        const initialPriceData = history.find((d: any) => d.date === initialDate) || history[0];
-        const initialPrice = initialPriceData.price;
-        const dayData = history.find((d: any) => d.date === date) || history[history.length - 1];
-        if (dayData && initialPrice > 0) {
-          const returns = dayData.price / initialPrice;
-          performancePoint[symbol] = currentPortfolioValue * returns;
-        }
+      const initialPrice = priceMaps[symbol]?.get(initialDate) || fetchedData[symbol]?.[0]?.price || 0;
+      const currentPrice = priceMaps[symbol]?.get(date) || lastKnownPrices[symbol] || 0;
+      
+      if (initialPrice > 0 && currentPrice > 0) {
+        const returns = currentPrice / initialPrice;
+        performancePoint[symbol] = currentPortfolioValue * returns;
       }
     });
     
     newPerformanceData.push(performancePoint);
   }
 
-  // Calculate full correlation matrix for all holdings
-  const correlationMatrix: any = {
+  // Calculate full correlation matrix for all holdings by offloading to the backend
+  let correlationMatrix: any = {
     symbols: currentHoldings.map(h => h.symbol),
     matrix: {}
   };
 
-  for (const h1 of currentHoldings) {
-    correlationMatrix.matrix[h1.symbol] = {};
-    for (const h2 of currentHoldings) {
-      if (h1.symbol === h2.symbol) {
-        correlationMatrix.matrix[h1.symbol][h2.symbol] = 1.0;
-        continue;
-      }
-
-      const history1 = fetchedData[h1.symbol];
-      const history2 = fetchedData[h2.symbol];
-
-      if (history1 && history2 && history1.length > 0 && history2.length > 0) {
-        const commonDates = history1
-          .map(d => d.date)
-          .filter(date => history2.some(d2 => d2.date === date))
-          .slice(-252);
-
-        if (commonDates.length > 5) {
-          const returns1 = calculateReturns(commonDates.map(date => history1.find(d => d.date === date)!.price));
-          const returns2 = calculateReturns(commonDates.map(date => history2.find(d => d.date === date)!.price));
-          correlationMatrix.matrix[h1.symbol][h2.symbol] = calculateCorrelation(returns1, returns2);
-        } else {
-          correlationMatrix.matrix[h1.symbol][h2.symbol] = 0.5;
-        }
-      } else {
-        correlationMatrix.matrix[h1.symbol][h2.symbol] = 0.5;
-      }
+  const holdingSymbols = currentHoldings.map(h => h.symbol);
+  
+  try {
+    const correlationResponse = await fetch('/api/finance/correlation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fetchedData,
+        symbols: holdingSymbols
+      })
+    });
+    
+    if (correlationResponse.ok) {
+      correlationMatrix = await correlationResponse.json();
+    } else {
+      console.warn("Failed to fetch correlation matrix from backend, falling back to empty matrix.");
     }
+  } catch (error) {
+    console.error("Error fetching correlation matrix:", error);
   }
   
   return {
@@ -258,6 +288,7 @@ export async function syncRealData(currentHoldings: any[], existingEtfMetrics: R
     newEtfMetrics,
     riskFreeRate,
     correlationMatrix,
-    allFetchedData: fetchedData
+    allFetchedData: fetchedData,
+    enrichedTransactionsData: enrichedTransactions
   };
 }

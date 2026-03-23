@@ -14,7 +14,7 @@ import { syncRealData } from '../services/financeApi';
 type SyncState = 'idle' | 'fetching' | 'analyzing';
 
 export function Dashboard() {
-  const { holdingsData, performanceData, etfMetrics, updateData, benchmarks, clearCache, correlationMatrix, riskFreeRate } = useData();
+  const { holdingsData, transactionsData, performanceData, etfMetrics, updateData, benchmarks, clearCache, correlationMatrix, riskFreeRate } = useData();
   const [syncState, setSyncState] = useState<SyncState>('idle');
   const [activeTab, setActiveTab] = useState('overview');
   
@@ -116,18 +116,25 @@ export function Dashboard() {
     return { change, changePct };
   }, [performanceData]);
 
+  const overallStats = useMemo(() => {
+    const totalCostBasis = holdingsData.reduce((sum, item) => sum + (item.qty * item.purchasePrice), 0);
+    const change = totalValue - totalCostBasis;
+    const changePct = totalCostBasis > 0 ? (change / totalCostBasis) * 100 : 0;
+    return { change, changePct };
+  }, [holdingsData, totalValue]);
+
   const handleSyncMarketData = async (currentHoldings = holdingsData) => {
     setSyncState('fetching');
-    clearCache();
     try {
-      const { newHoldingsData, newPerformanceData, newEtfMetrics, allFetchedData, riskFreeRate, correlationMatrix } = await syncRealData(currentHoldings, etfMetrics, benchmarks);
+      const { newHoldingsData, newPerformanceData, newEtfMetrics, allFetchedData, riskFreeRate, correlationMatrix, enrichedTransactionsData } = await syncRealData(currentHoldings, transactionsData, etfMetrics, benchmarks);
       updateData({
         holdingsData: newHoldingsData,
         performanceData: newPerformanceData,
         etfMetrics: newEtfMetrics,
         allFetchedData: allFetchedData,
         riskFreeRate: riskFreeRate,
-        correlationMatrix: correlationMatrix
+        correlationMatrix: correlationMatrix,
+        transactionsData: enrichedTransactionsData
       });
       setLastSynced(new Date());
       setSyncCount(prev => prev + 1);
@@ -254,10 +261,10 @@ ${reportText}`;
   const renderContent = () => {
     switch (activeTab) {
       case 'overview': return <Overview analysisSummary={analysisSummary} isSyncing={isSyncing} onTabChange={setActiveTab} />;
-      case 'holdings': return <Holdings />;
-      case 'benchmark': return <BenchmarkComparison />;
-      case 'analysis': return <Analysis report={analysisReport} isAnalyzing={isAnalyzing} />;
-      case 'transactions': return <Transactions />;
+      case 'holdings': return <Holdings onTabChange={setActiveTab} />;
+      case 'benchmark': return <BenchmarkComparison onTabChange={setActiveTab} />;
+      case 'analysis': return <Analysis report={analysisReport} isAnalyzing={isAnalyzing} onTabChange={setActiveTab} />;
+      case 'transactions': return <Transactions onTabChange={setActiveTab} />;
       case 'ai': return <AIAssistant />;
       case 'help': return <Help />;
       default: return <Overview analysisSummary={analysisSummary} isSyncing={isSyncing} onTabChange={setActiveTab} />;
@@ -276,6 +283,8 @@ ${reportText}`;
       totalValue={totalValue}
       dailyChange={dailyStats.change}
       dailyChangePct={dailyStats.changePct}
+      overallChange={overallStats.change}
+      overallChangePct={overallStats.changePct}
     >
       <div className="animate-slam">
         {renderContent()}

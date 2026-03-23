@@ -5,7 +5,8 @@ import { MetricRow, InfoTooltip } from './shared';
 import { useData } from '../../context/DataContext';
 import { HelpCircle, TrendingUp, TrendingDown, Target, Shield, Zap, BarChart3, PieChart as PieChartIcon, Activity } from 'lucide-react';
 import { 
-  calculateReturns, 
+  alignTimeSeries,
+  calculateLogReturns,
   calculateVolatility, 
   calculateSharpeRatio, 
   calculateMaxDrawdown, 
@@ -14,7 +15,8 @@ import {
   calculateTrackingError, 
   calculateInformationRatio, 
   calculateTreynorRatio,
-  calculateVaR,
+  calculateParametricVaR,
+  calculateCVaR,
   calculateReturn1M,
   calculateSortinoRatio,
   calculateDrawdownSeries
@@ -160,9 +162,13 @@ export const AttributionTab: React.FC<AttributionTabProps> = ({
         const filteredETF = etfHistory.filter(d => new Date(d.date) >= startDate);
         const filteredBench = benchHistory.filter(d => new Date(d.date) >= startDate);
 
-        const alignedDates = filteredETF.map(d => d.date).filter(date => filteredBench.some(bd => bd.date === date));
-        const alignedETF = alignedDates.map(date => filteredETF.find(d => d.date === date)!.price);
-        const alignedBench = alignedDates.map(date => filteredBench.find(d => d.date === date)!.price);
+        const { alignedPrices } = alignTimeSeries(
+          { [h.symbol]: filteredETF, [selectedBenchmark]: filteredBench },
+          [h.symbol, selectedBenchmark]
+        );
+        
+        const alignedETF = alignedPrices[h.symbol];
+        const alignedBench = alignedPrices[selectedBenchmark];
 
         if (alignedETF.length > 5) {
           dynamicReturn = ((alignedETF[alignedETF.length - 1] - alignedETF[0]) / alignedETF[0]) * 100;
@@ -182,8 +188,8 @@ export const AttributionTab: React.FC<AttributionTabProps> = ({
     const portValues = filteredPerformance.map(d => d.value);
     const benchValues = filteredPerformance.map(d => d[selectedBenchmark]);
     
-    const portReturns = calculateReturns(portValues);
-    const benchReturns = calculateReturns(benchValues);
+    const portReturns = calculateLogReturns(portValues);
+    const benchReturns = calculateLogReturns(benchValues);
 
     const portBeta = calculateBeta(portReturns, benchReturns);
 
@@ -194,7 +200,8 @@ export const AttributionTab: React.FC<AttributionTabProps> = ({
         sharpeRatio: calculateSharpeRatio(portReturns, riskFreeRate),
         sortinoRatio: calculateSortinoRatio(portReturns, riskFreeRate),
         maxDrawdown: calculateMaxDrawdown(portValues),
-        var95: calculateVaR(portReturns),
+        var95: calculateParametricVaR(portReturns),
+        cvar95: calculateCVaR(portReturns),
         alpha: calculateAlpha(portReturns, benchReturns, portBeta, riskFreeRate),
         beta: portBeta,
         trackingError: calculateTrackingError(portReturns, benchReturns),
@@ -207,7 +214,8 @@ export const AttributionTab: React.FC<AttributionTabProps> = ({
         sharpeRatio: calculateSharpeRatio(benchReturns, riskFreeRate),
         sortinoRatio: calculateSortinoRatio(benchReturns, riskFreeRate),
         maxDrawdown: calculateMaxDrawdown(benchValues),
-        var95: calculateVaR(benchReturns),
+        var95: calculateParametricVaR(benchReturns),
+        cvar95: calculateCVaR(benchReturns),
         treynorRatio: calculateTreynorRatio(benchReturns, 1, riskFreeRate)
       }
     };
@@ -460,34 +468,35 @@ export const AttributionTab: React.FC<AttributionTabProps> = ({
         </div>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-2">
+      <div className="grid gap-8 lg:grid-cols-2 items-start">
         <div className="glass-panel p-8">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-1.5 h-6 bg-indigo-500 rounded-full shadow-[0_0_12px_rgba(99,102,241,0.5)]" />
+          <div className="flex items-start gap-3 mb-6 h-16">
+            <div className="w-1.5 h-6 bg-indigo-500 rounded-full shadow-[0_0_12px_rgba(99,102,241,0.5)] mt-1 shrink-0" />
             <div>
-              <h3 className="text-sm font-mono font-bold text-terminal-text uppercase tracking-widest">Macro Risk & Return</h3>
-              <p className="text-[10px] text-terminal-muted uppercase font-bold">Period-specific statistical analysis ({timeRange})</p>
+              <h3 className="text-sm font-mono font-bold text-terminal-text uppercase tracking-widest line-clamp-1">Macro Risk & Return</h3>
+              <p className="text-[10px] text-terminal-muted uppercase font-bold mt-1 line-clamp-2">Period-specific statistical analysis ({timeRange})</p>
             </div>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-0">
             <MetricRow label="1M Return" portValue={dynamicMetrics.portfolio.return1M} benchValue={dynamicMetrics.benchmark.return1M} isPercentage />
             <MetricRow label="Volatility (Ann.)" portValue={dynamicMetrics.portfolio.volatility} benchValue={dynamicMetrics.benchmark.volatility} isPercentage inverseGood />
             <MetricRow label="Sharpe Ratio" portValue={dynamicMetrics.portfolio.sharpeRatio} benchValue={dynamicMetrics.benchmark.sharpeRatio} />
             <MetricRow label="Sortino Ratio" portValue={dynamicMetrics.portfolio.sortinoRatio} benchValue={dynamicMetrics.benchmark.sortinoRatio} />
             <MetricRow label="Max Drawdown" portValue={dynamicMetrics.portfolio.maxDrawdown} benchValue={dynamicMetrics.benchmark.maxDrawdown} isPercentage inverseGood />
             <MetricRow label="VaR (95%)" portValue={dynamicMetrics.portfolio.var95} benchValue={dynamicMetrics.benchmark.var95} isPercentage inverseGood />
+            <MetricRow label="CVaR (95%)" portValue={dynamicMetrics.portfolio.cvar95} benchValue={dynamicMetrics.benchmark.cvar95} isPercentage inverseGood />
           </div>
         </div>
 
         <div className="glass-panel p-8">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-1.5 h-6 bg-emerald-500 rounded-full shadow-[0_0_12px_rgba(16,185,129,0.5)]" />
+          <div className="flex items-start gap-3 mb-6 h-16">
+            <div className="w-1.5 h-6 bg-emerald-500 rounded-full shadow-[0_0_12px_rgba(16,185,129,0.5)] mt-1 shrink-0" />
             <div>
-              <h3 className="text-sm font-mono font-bold text-terminal-text uppercase tracking-widest">Micro Attribution</h3>
-              <p className="text-[10px] text-terminal-muted uppercase font-bold">Relative performance vs. {selectedBenchmark}</p>
+              <h3 className="text-sm font-mono font-bold text-terminal-text uppercase tracking-widest line-clamp-1">Micro Attribution</h3>
+              <p className="text-[10px] text-terminal-muted uppercase font-bold mt-1 line-clamp-2">Relative performance vs. {selectedBenchmark}</p>
             </div>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-0">
             <MetricRow label="Alpha (Ann.)" portValue={dynamicMetrics.portfolio.alpha} benchValue={0} isPercentage />
             <MetricRow label="Beta" portValue={dynamicMetrics.portfolio.beta} benchValue={1} inverseGood={dynamicMetrics.portfolio.beta > 1.1} />
             <MetricRow label="Tracking Error" portValue={dynamicMetrics.portfolio.trackingError} benchValue={0} isPercentage inverseGood />

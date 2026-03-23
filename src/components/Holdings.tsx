@@ -10,7 +10,6 @@ import {
   ArrowDownRight, 
   Search,
   Filter,
-  MoreHorizontal,
   Zap,
   ShieldAlert,
   TrendingUp,
@@ -18,10 +17,11 @@ import {
 } from 'lucide-react';
 import { downloadCSV } from '../utils/download';
 import { DataSourceFooter } from './DataSourceFooter';
+import { InfoTooltip } from './benchmark/shared';
 
-type SortField = 'symbol' | 'currentPrice' | 'purchasePrice' | 'qty' | 'totalValue' | 'totalGainLoss';
+type SortField = 'symbol' | 'currentPrice' | 'purchasePrice' | 'qty' | 'totalValue' | 'totalGainLoss' | 'tcaSlippage' | 'tcaImpact';
 
-export function Holdings() {
+export function Holdings({ onTabChange }: { onTabChange?: (tab: string) => void }) {
   const { holdingsData } = useData();
   const [sortField, setSortField] = useState<SortField>('totalValue');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -47,8 +47,8 @@ export function Holdings() {
   );
 
   const sortedHoldings = [...filteredHoldings].sort((a, b) => {
-    const aValue = a[sortField];
-    const bValue = b[sortField];
+    const aValue = a[sortField] ?? 0;
+    const bValue = b[sortField] ?? 0;
     
     if (typeof aValue === 'string' && typeof bValue === 'string') {
       return sortDirection === 'asc' 
@@ -109,7 +109,8 @@ export function Holdings() {
                 <SortHeader field="currentPrice" label="Price" align="right" className="hidden lg:table-cell" />
                 <SortHeader field="totalValue" label="Market Value" align="right" />
                 <SortHeader field="totalGainLoss" label="P&L (Unrealized)" align="right" />
-                <th className="px-4 py-3 text-right tech-label">Action</th>
+                <SortHeader field="tcaSlippage" label="TCA Slippage" align="right" className="hidden xl:table-cell" />
+                <SortHeader field="tcaImpact" label="TCA Impact" align="right" className="hidden xl:table-cell" />
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -122,7 +123,18 @@ export function Holdings() {
                   <tr key={holding.symbol} className="hover:bg-white/[0.02] transition-colors group">
                     <td className="px-4 py-5 align-top">
                       <div className="flex flex-col gap-1">
-                        <span className="text-sm font-bold font-mono text-indigo-400 group-hover:text-indigo-300 transition-colors">{holding.symbol}</span>
+                        <span className="text-sm font-bold font-mono text-indigo-400 group-hover:text-indigo-300 transition-colors flex items-center gap-1">
+                          {holding.symbol}
+                          {onTabChange && (
+                            <button 
+                              onClick={() => onTabChange('analysis')} 
+                              className="text-terminal-muted hover:text-indigo-400 transition-colors focus:outline-none"
+                              title="View Analysis"
+                            >
+                              <ArrowUpRight className="h-3 w-3" />
+                            </button>
+                          )}
+                        </span>
                         <span className="text-[10px] font-mono uppercase text-terminal-muted tracking-tighter">{holding.assetClass}</span>
                       </div>
                     </td>
@@ -171,17 +183,22 @@ export function Holdings() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-5 align-top text-right">
-                      <button className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-terminal-muted hover:text-terminal-text">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
+                    <td className="px-4 py-5 align-top text-right hidden xl:table-cell">
+                      <span className={`tech-value text-xs ${(holding.tcaSlippage || 0) < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                        ${(holding.tcaSlippage || 0).toFixed(2)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-5 align-top text-right hidden xl:table-cell">
+                      <span className={`tech-value text-xs ${(holding.tcaImpact || 0) < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                        ${(holding.tcaImpact || 0).toFixed(2)}
+                      </span>
                     </td>
                   </tr>
                 );
               })}
               {sortedHoldings.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-6 py-24 text-center">
+                  <td colSpan={7} className="px-6 py-24 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <Search className="h-8 w-8 text-white/10" />
                       <p className="text-sm font-mono text-terminal-muted">No holdings match your current filter criteria.</p>

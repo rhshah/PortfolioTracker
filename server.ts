@@ -54,6 +54,122 @@ async function startServer() {
     }
   });
 
+  app.use(express.json({ limit: '50mb' }));
+
+  app.post("/api/finance/correlation", (req, res) => {
+    try {
+      const { fetchedData, symbols } = req.body;
+
+      if (!fetchedData || !symbols || !Array.isArray(symbols)) {
+        return res.status(400).json({ error: "Missing fetchedData or symbols array" });
+      }
+
+      // 1. Align Time Series
+      const allDatesSet = new Set<string>();
+      symbols.forEach(sym => {
+        if (fetchedData[sym]) {
+          fetchedData[sym].forEach((d: any) => allDatesSet.add(d.date));
+        }
+      });
+      
+      const allDates = Array.from(allDatesSet).sort();
+      const alignedPrices: Record<string, number[]> = {};
+      
+      symbols.forEach(sym => {
+        alignedPrices[sym] = [];
+        let lastPrice = 0;
+        
+        if (fetchedData[sym] && fetchedData[sym].length > 0) {
+          lastPrice = fetchedData[sym][0].price;
+        }
+
+        const dateToPrice = new Map<string, number>();
+        if (fetchedData[sym]) {
+          fetchedData[sym].forEach((d: any) => dateToPrice.set(d.date, d.price));
+        }
+
+        allDates.forEach(date => {
+          if (dateToPrice.has(date)) {
+            lastPrice = dateToPrice.get(date)!;
+          }
+          alignedPrices[sym].push(lastPrice);
+        });
+      });
+
+      // 2. Calculate Log Returns
+      const calculateLogReturns = (data: number[]) => {
+        if (data.length < 2) return [];
+        const returns = [];
+        for (let i = 1; i < data.length; i++) {
+          const prevValue = data[i - 1];
+          const currentValue = data[i];
+          if (prevValue <= 0 || currentValue <= 0) {
+            returns.push(0);
+          } else {
+            returns.push(Math.log(currentValue / prevValue));
+          }
+        }
+        return returns;
+      };
+
+      // 3. Calculate Correlation
+      const calculateCorrelation = (x: number[], y: number[]) => {
+        if (x.length === 0 || y.length === 0 || x.length !== y.length) return 0;
+        const n = x.length;
+        const sumX = x.reduce((a, b) => a + b, 0);
+        const sumY = y.reduce((a, b) => a + b, 0);
+        const sumXY = x.reduce((a, b, i) => a + b * y[i], 0);
+        const sumX2 = x.reduce((a, b) => a + b * b, 0);
+        const sumY2 = y.reduce((a, b) => a + b * b, 0);
+        
+        const numerator = n * sumXY - sumX * sumY;
+        const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+        
+        if (denominator === 0) return 0;
+        return numerator / denominator;
+      };
+
+      // 4. Build Matrix
+      const correlationMatrix: any = {
+        symbols: symbols,
+        matrix: {}
+      };
+
+      // Pre-calculate log returns for the last 252 days
+      const precalculatedReturns: Record<string, number[]> = {};
+      for (const sym of symbols) {
+        const prices = alignedPrices[sym].slice(-252);
+        if (prices.length > 5) {
+          precalculatedReturns[sym] = calculateLogReturns(prices);
+        }
+      }
+
+      for (const h1 of symbols) {
+        correlationMatrix.matrix[h1] = {};
+        for (const h2 of symbols) {
+          if (h1 === h2) {
+            correlationMatrix.matrix[h1][h2] = 1.0;
+            continue;
+          }
+
+          const returns1 = precalculatedReturns[h1];
+          const returns2 = precalculatedReturns[h2];
+
+          if (returns1 && returns2) {
+            correlationMatrix.matrix[h1][h2] = calculateCorrelation(returns1, returns2);
+          } else {
+            correlationMatrix.matrix[h1][h2] = 0.5;
+          }
+        }
+      }
+
+      res.json(correlationMatrix);
+    } catch (error: any) {
+      console.error(`Error calculating correlation matrix:`, error);
+      res.status(500).json({ error: error.message || "Failed to calculate correlation matrix" });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

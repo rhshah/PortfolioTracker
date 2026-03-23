@@ -3,14 +3,15 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { TableHeaderWithTooltip, TableHeaderWithTooltipRight, VisualMetricCell, InfoTooltip } from './shared';
 import { useData } from '../../context/DataContext';
 import { 
-  calculateReturns, 
+  alignTimeSeries,
+  calculateLogReturns,
   calculateVolatility, 
   calculateSharpeRatio, 
   calculateMaxDrawdown, 
   calculateBeta, 
   calculateAlpha, 
   calculateTrackingError, 
-  calculateVaR,
+  calculateParametricVaR,
   calculateCorrelation
 } from '../../utils/financeMath';
 import { ShieldCheck, BarChart3, Target, Info, ChevronDown, ArrowUpRight, ArrowDownRight, Search, Filter } from 'lucide-react';
@@ -20,13 +21,15 @@ interface DeepDiveTabProps {
   setSelectedBenchmark: (id: string) => void;
   timeRange: string;
   setTimeRange: (range: any) => void;
+  onTabChange?: (tab: string) => void;
 }
 
 export const DeepDiveTab: React.FC<DeepDiveTabProps> = ({ 
   selectedBenchmark,
   setSelectedBenchmark,
   timeRange,
-  setTimeRange
+  setTimeRange,
+  onTabChange
 }) => {
   const { holdingsData, etfMetrics, benchmarks, performanceData, allFetchedData, riskFreeRate, transactionsData } = useData();
   const [selectedETF, setSelectedETF] = useState<string | null>(null);
@@ -88,13 +91,17 @@ export const DeepDiveTab: React.FC<DeepDiveTabProps> = ({
         const filteredBench = benchHistory.filter(d => new Date(d.date) >= startDate);
 
         // Align data points for math functions
-        const alignedDates = filteredETF.map(d => d.date).filter(date => filteredBench.some(bd => bd.date === date));
-        const alignedETF = alignedDates.map(date => filteredETF.find(d => d.date === date)!.price);
-        const alignedBench = alignedDates.map(date => filteredBench.find(d => d.date === date)!.price);
+        const { alignedPrices } = alignTimeSeries(
+          { [h.symbol]: filteredETF, [selectedBenchmark]: filteredBench },
+          [h.symbol, selectedBenchmark]
+        );
+        
+        const alignedETF = alignedPrices[h.symbol];
+        const alignedBench = alignedPrices[selectedBenchmark];
 
         if (alignedETF.length > 5) {
-          const etfReturns = calculateReturns(alignedETF);
-          const benchReturns = calculateReturns(alignedBench);
+          const etfReturns = calculateLogReturns(alignedETF);
+          const benchReturns = calculateLogReturns(alignedBench);
           const beta = calculateBeta(etfReturns, benchReturns);
 
           return {
@@ -107,7 +114,7 @@ export const DeepDiveTab: React.FC<DeepDiveTabProps> = ({
             beta: beta,
             correlation: calculateCorrelation(etfReturns, benchReturns),
             trackingError: calculateTrackingError(etfReturns, benchReturns),
-            var95: -calculateVaR(etfReturns) // VaR is usually shown as negative in this UI
+            var95: -calculateParametricVaR(etfReturns) // VaR is usually shown as negative in this UI
           };
         }
       }
@@ -324,6 +331,7 @@ export const DeepDiveTab: React.FC<DeepDiveTabProps> = ({
                 <TableHeaderWithTooltipRight label="CORR." metricKey="Correlation to Benchmark" sortKey="correlation" currentSortField={sortConfig.key} onSort={onSort} />
                 <TableHeaderWithTooltipRight label="TE" metricKey="Tracking Error" sortKey="trackingError" currentSortField={sortConfig.key} onSort={onSort} />
                 <TableHeaderWithTooltipRight label="VAR (95%)" metricKey="VaR (95%)" sortKey="var95" currentSortField={sortConfig.key} onSort={onSort} />
+                <TableHeaderWithTooltipRight label="CVAR (95%)" metricKey="CVaR (95%)" sortKey="cvar95" currentSortField={sortConfig.key} onSort={onSort} />
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -339,7 +347,21 @@ export const DeepDiveTab: React.FC<DeepDiveTabProps> = ({
                 >
                   <td className="px-4 py-3">
                     <div className="flex flex-col">
-                      <span className="font-bold text-white group-hover:text-indigo-400 transition-colors">{holding.symbol}</span>
+                      <span className="font-bold text-white group-hover:text-indigo-400 transition-colors flex items-center gap-1">
+                        {holding.symbol}
+                        {onTabChange && (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onTabChange('transactions');
+                            }} 
+                            className="text-terminal-muted hover:text-indigo-400 transition-colors focus:outline-none"
+                            title="View Transactions"
+                          >
+                            <ArrowUpRight className="h-3 w-3" />
+                          </button>
+                        )}
+                      </span>
                       <span className="text-[9px] text-slate-500 font-mono tracking-tighter">{holding.benchmark}</span>
                     </div>
                   </td>
@@ -361,6 +383,7 @@ export const DeepDiveTab: React.FC<DeepDiveTabProps> = ({
                   <VisualMetricCell value={holding.correlation} min={0} max={1} target={0.8} />
                   <VisualMetricCell value={holding.trackingError} min={0} max={10} target={2} isPercentage inverse />
                   <VisualMetricCell value={holding.var95} min={-5} max={0} target={-2} isPercentage inverse />
+                  <VisualMetricCell value={holding.cvar95} min={-5} max={0} target={-2} isPercentage inverse />
                 </tr>
               ))}
             </tbody>

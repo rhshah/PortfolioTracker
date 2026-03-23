@@ -52,9 +52,8 @@ interface OverviewProps {
 type TimeRange = '1M' | '3M' | 'YTD' | '1Y' | 'ALL';
 
 export function Overview({ analysisSummary, isSyncing, onTabChange }: OverviewProps) {
-  const { performanceData, holdingsData, transactionsData, benchmarks, riskFreeRate, correlationMatrix } = useData();
+  const { performanceData, holdingsData, transactionsData, benchmarks, riskFreeRate, correlationMatrix, selectedBenchmark, setSelectedBenchmark } = useData();
   const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
-  const [selectedBenchmark] = useState(benchmarks[0].id);
 
   const firstTransactionDate = useMemo(() => {
     if (!transactionsData || transactionsData.length === 0) return null;
@@ -172,6 +171,13 @@ export function Overview({ analysisSummary, isSyncing, onTabChange }: OverviewPr
   const contributorsList = useMemo(() => contributors.map(c => c.symbol).join(', '), [contributors]);
   const detractorsList = useMemo(() => detractors.map(d => d.symbol).join(', '), [detractors]);
 
+  const diagnosticConfidence = useMemo(() => {
+    if (performanceData.length > 252) return { score: 5, text: "High Reliability" }; // > 1 year
+    if (performanceData.length > 126) return { score: 4, text: "Good Reliability" }; // > 6 months
+    if (performanceData.length > 63) return { score: 3, text: "Moderate Reliability" }; // > 3 months
+    return { score: 2, text: "Low Reliability" };
+  }, [performanceData]);
+
   return (
     <div className="space-y-8 pb-12 animate-slam">
       {/* Mosaic Grid Layout */}
@@ -206,6 +212,15 @@ export function Overview({ analysisSummary, isSyncing, onTabChange }: OverviewPr
                   </button>
                 ))}
               </div>
+              <select
+                value={selectedBenchmark}
+                onChange={(e) => setSelectedBenchmark(e.target.value)}
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-mono font-bold text-terminal-text shadow-sm focus:ring-2 focus:ring-indigo-500/20 outline-none appearance-none cursor-pointer hover:bg-white/10 transition-colors"
+              >
+                {benchmarks.map((b) => (
+                  <option key={b.id} value={b.id} className="bg-slate-900">{b.name}</option>
+                ))}
+              </select>
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -289,6 +304,7 @@ export function Overview({ analysisSummary, isSyncing, onTabChange }: OverviewPr
                 description={isHypothetical 
                   ? "This view simulates how your CURRENT holdings would have performed over the selected period, even before your first transaction." 
                   : "This view shows the performance of your portfolio starting from your very first recorded transaction."}
+                lookFor={isHypothetical ? "Use this to evaluate the historical strength of your current asset allocation." : "Use this to track your actual realized and unrealized gains over time."}
               />
             </div>
             {isHypothetical && (
@@ -299,6 +315,7 @@ export function Overview({ analysisSummary, isSyncing, onTabChange }: OverviewPr
                 <InfoTooltip 
                   title="Back-Dated Simulation" 
                   description="In Backtest Mode, the system applies your current share quantities to historical price data. This assumes you held the same number of shares throughout the entire period, providing a 'what-if' scenario for your current strategy."
+                  lookFor="Understand that this does not reflect your actual trading history or cash flows."
                 />
               </div>
             )}
@@ -332,10 +349,10 @@ export function Overview({ analysisSummary, isSyncing, onTabChange }: OverviewPr
               <div className="tech-label mb-2">Diagnostic Confidence</div>
               <div className="flex gap-1">
                 {[1,2,3,4,5].map(i => (
-                  <div key={i} className={`h-1.5 w-4 rounded-full ${i <= 4 ? 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.4)]' : 'bg-white/10'}`} />
+                  <div key={i} className={`h-1.5 w-4 rounded-full ${i <= diagnosticConfidence.score ? 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.4)]' : 'bg-white/10'}`} />
                 ))}
               </div>
-              <div className="text-[8px] text-terminal-muted mt-2 font-mono uppercase tracking-widest">High Reliability</div>
+              <div className="text-[8px] text-terminal-muted mt-2 font-mono uppercase tracking-widest">{diagnosticConfidence.text}</div>
             </div>
           </div>
         </div>

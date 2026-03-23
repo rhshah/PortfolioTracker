@@ -1,17 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/Card';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Activity, Loader2, Download, Bot, ExternalLink, FileText, ShieldAlert, Zap } from 'lucide-react';
+import { Activity, Loader2, Download, Bot, ExternalLink, FileText, ShieldAlert, Zap, BarChart2 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { DataSourceFooter } from './DataSourceFooter';
+import { ExecutionTCA } from './ExecutionTCA';
 
 interface AnalysisProps {
   report: string | null;
   isAnalyzing: boolean;
+  onTabChange?: (tab: string) => void;
 }
 
-export function Analysis({ report, isAnalyzing }: AnalysisProps) {
+export function Analysis({ report, isAnalyzing, onTabChange }: AnalysisProps) {
+  const [view, setView] = useState<'risk' | 'execution'>('risk');
+
   const handleDownload = () => {
     if (!report) return;
     const blob = new Blob([report], { type: 'text/markdown;charset=utf-8;' });
@@ -35,29 +39,57 @@ export function Analysis({ report, isAnalyzing }: AnalysisProps) {
 
   return (
     <div className="terminal-card min-h-[600px] flex flex-col">
-      <div className="p-8 border-b border-white/10 bg-white/[0.02] flex flex-row items-center justify-between">
+      <div className="p-8 border-b border-white/10 bg-white/[0.02] flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="tech-label text-indigo-400 mb-1">Institutional Intelligence</div>
           <h3 className="text-2xl font-bold font-display tracking-tight flex items-center gap-3">
             <Bot className="h-6 w-6 text-indigo-400" />
-            PM Risk Briefing
+            Analysis & Execution
           </h3>
           <p className="text-[10px] text-terminal-muted uppercase font-bold mt-1 tracking-widest">
-            Deep-dive analysis powered by Gemini 3.1 Pro
+            Deep-dive risk analysis and transaction cost analytics
           </p>
         </div>
-        <div className="flex gap-3">
-          {report && (
-            <Button variant="outline" size="sm" onClick={handleDownload} className="tech-label border-white/10 hover:bg-white/5 gap-2">
+        
+        <div className="flex items-center gap-3">
+          <div className="flex bg-white/5 p-1 rounded-lg border border-white/10">
+            <button
+              onClick={() => setView('risk')}
+              className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${
+                view === 'risk' 
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' 
+                  : 'text-terminal-muted hover:text-terminal-text'
+              }`}
+            >
+              <ShieldAlert className="h-3 w-3" />
+              Risk Analytics
+            </button>
+            <button
+              onClick={() => setView('execution')}
+              className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${
+                view === 'execution' 
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' 
+                  : 'text-terminal-muted hover:text-terminal-text'
+              }`}
+            >
+              <BarChart2 className="h-3 w-3" />
+              Execution (TCA)
+            </button>
+          </div>
+
+          {report && view === 'risk' && (
+            <Button variant="outline" size="sm" onClick={handleDownload} className="tech-label border-white/10 hover:bg-white/5 gap-2 h-8">
               <Download className="h-4 w-4" />
-              Export Markdown
+              Export
             </Button>
           )}
         </div>
       </div>
       
       <div className="p-8 flex-1">
-        {isAnalyzing ? (
+        {view === 'execution' ? (
+          <ExecutionTCA onTabChange={onTabChange} />
+        ) : isAnalyzing ? (
           <div className="flex flex-col items-center justify-center h-[400px] space-y-6">
             <div className="relative">
               <div className="absolute inset-0 rounded-full bg-indigo-500/20 animate-ping"></div>

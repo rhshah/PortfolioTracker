@@ -3,19 +3,45 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { useData } from '../context/DataContext';
 import { AddTransactionModal } from './AddTransactionModal';
 import { Button } from './ui/Button';
-import { Download, ArrowUpDown, History } from 'lucide-react';
+import { Download, ArrowUpDown, History, Trash2 } from 'lucide-react';
 import { downloadCSV } from '../utils/download';
 import { DataSourceFooter } from './DataSourceFooter';
+import { calculateHoldingsFromTransactions } from '../utils/portfolioMath';
+import { ArrowUpRight } from 'lucide-react';
 
-type SortField = 'date' | 'symbol' | 'type' | 'qty' | 'price' | 'total';
+type SortField = 'date' | 'symbol' | 'type' | 'qty' | 'price' | 'total' | 'decisionPrice' | 'executionPrice';
 
-export function Transactions() {
-  const { transactionsData } = useData();
+export function Transactions({ onTabChange }: { onTabChange?: (tab: string) => void }) {
+  const { transactionsData, holdingsData, updateData } = useData();
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   const handleDownload = () => {
     downloadCSV(transactionsData, 'portfolio_transactions.csv');
+  };
+
+  const handleDelete = (indexToDelete: number) => {
+    // Find the actual index in the original transactionsData array
+    const txToDelete = sortedTransactions[indexToDelete];
+    const originalIndex = transactionsData.indexOf(txToDelete);
+    
+    if (originalIndex === -1) return;
+
+    const newTransactions = [...transactionsData];
+    newTransactions.splice(originalIndex, 1);
+
+    // Recalculate holdings
+    const currentPrices: Record<string, number> = {};
+    holdingsData.forEach(h => {
+      currentPrices[h.symbol] = h.currentPrice;
+    });
+
+    const newHoldings = calculateHoldingsFromTransactions(newTransactions, holdingsData, currentPrices);
+
+    updateData({
+      transactionsData: newTransactions,
+      holdingsData: newHoldings
+    });
   };
 
   const handleSort = (field: SortField) => {
@@ -28,8 +54,8 @@ export function Transactions() {
   };
 
   const sortedTransactions = [...transactionsData].sort((a, b) => {
-    let aValue = a[sortField];
-    let bValue = b[sortField];
+    let aValue = a[sortField] ?? 0;
+    let bValue = b[sortField] ?? 0;
     
     // Special handling for dates
     if (sortField === 'date') {
@@ -88,6 +114,9 @@ export function Transactions() {
                 <SortHeader field="qty" label="QTY" align="right" className="hidden sm:table-cell" />
                 <SortHeader field="price" label="Price" align="right" className="hidden md:table-cell" />
                 <SortHeader field="total" label="Total Cash Value" align="right" />
+                <SortHeader field="decisionPrice" label="Decision Price" align="right" className="hidden lg:table-cell" />
+                <SortHeader field="executionPrice" label="Execution Price" align="right" className="hidden lg:table-cell" />
+                <th className="px-6 py-3 text-right tech-label w-16">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -99,7 +128,18 @@ export function Transactions() {
                       {tx.date}
                     </td>
                     <td className="px-6 py-4 font-bold font-mono text-indigo-400">
-                      {tx.symbol}
+                      <span className="flex items-center gap-1 group-hover:text-indigo-300 transition-colors">
+                        {tx.symbol}
+                        {onTabChange && (
+                          <button 
+                            onClick={() => onTabChange('analysis')} 
+                            className="text-terminal-muted hover:text-indigo-400 transition-colors focus:outline-none"
+                            title="View Analysis"
+                          >
+                            <ArrowUpRight className="h-3 w-3" />
+                          </button>
+                        )}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest ${isBuy ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
@@ -115,12 +155,27 @@ export function Transactions() {
                     <td className="px-6 py-4 text-right tech-value text-xs text-terminal-text">
                       ${tx.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
+                    <td className="px-6 py-4 text-right tech-value text-xs hidden lg:table-cell text-slate-400">
+                      {tx.decisionPrice ? `$${tx.decisionPrice.toFixed(2)}` : '-'}
+                    </td>
+                    <td className="px-6 py-4 text-right tech-value text-xs hidden lg:table-cell text-slate-400">
+                      {tx.executionPrice ? `$${tx.executionPrice.toFixed(2)}` : '-'}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button 
+                        onClick={() => handleDelete(index)}
+                        className="p-1.5 hover:bg-rose-500/10 rounded-md transition-colors text-terminal-muted hover:text-rose-400"
+                        title="Delete Transaction"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
               {sortedTransactions.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-24 text-center">
+                  <td colSpan={7} className="px-6 py-24 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <History className="h-8 w-8 text-white/10" />
                       <p className="text-sm font-mono text-terminal-muted">No transactions found in the audit trail.</p>

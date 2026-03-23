@@ -114,34 +114,34 @@ export const MetricRow = ({ label, portValue, benchValue, isPercentage = false, 
   };
   
   return (
-    <div className="py-4 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-xl">
-      <div className="flex items-center justify-between group relative">
-        <div className="flex items-center gap-2">
-          <span className="tech-label text-terminal-muted">{label}</span>
+    <div className="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-4 -mx-4 rounded-xl">
+      <div className="flex items-center justify-between group relative h-16">
+        <div className="flex items-center gap-2 flex-1 min-w-0 pr-4">
+          <span className="tech-label text-terminal-muted truncate">{label}</span>
           {info && (
             <button 
               onClick={() => setShowInfo(!showInfo)}
-              className="text-terminal-muted hover:text-indigo-400 transition-colors focus:outline-none"
+              className="text-terminal-muted hover:text-indigo-400 transition-colors focus:outline-none shrink-0"
               title="Click for info"
             >
               <HelpCircle className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
-        <div className="flex items-center gap-8 text-xs">
-          <div className="flex flex-col items-end w-24">
+        <div className="flex items-center gap-4 md:gap-6 text-xs shrink-0">
+          <div className="flex flex-col items-end w-20 md:w-24 shrink-0">
             <span className={`tech-value ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
               {formatValue(portValue)}
             </span>
             <span className="text-[9px] text-terminal-muted uppercase font-mono font-bold tracking-tighter">Portfolio</span>
           </div>
-          <div className="flex flex-col items-end w-24">
+          <div className="flex flex-col items-end w-20 md:w-24 shrink-0">
             <span className="tech-value text-terminal-text">
               {formatValue(benchValue)}
             </span>
             <span className="text-[9px] text-terminal-muted uppercase font-mono font-bold tracking-tighter">Benchmark</span>
           </div>
-          <div className="flex flex-col items-end w-24">
+          <div className="flex flex-col items-end w-20 md:w-24 shrink-0">
             <span className={`tech-value ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
               {isPositive ? '+' : '-'}{formatValue(Math.abs(diff))}
             </span>

@@ -21,11 +21,40 @@ import { DataSourceFooter } from './DataSourceFooter';
 export type TimeRange = '1M' | '3M' | 'YTD' | '1Y' | 'ALL';
 export type SubTab = 'attribution' | 'risk' | 'deep-dive';
 
-export function BenchmarkComparison() {
-  const { benchmarks, riskFreeRate } = useData();
-  const [selectedBenchmark, setSelectedBenchmark] = useState(benchmarks[0].id);
+export function BenchmarkComparison({ onTabChange }: { onTabChange?: (tab: string) => void }) {
+  const { benchmarks, riskFreeRate, holdingsData, etfMetrics, selectedBenchmark, setSelectedBenchmark } = useData();
   const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('attribution');
+
+  const diagnosticMetrics = useMemo(() => {
+    if (!holdingsData.length || !etfMetrics) return { alpha: 0, trackingError: 0, activeShare: 0 };
+    
+    const totalValue = holdingsData.reduce((sum, h) => sum + h.totalValue, 0);
+    if (totalValue === 0) return { alpha: 0, trackingError: 0, activeShare: 0 };
+
+    let weightedAlpha = 0;
+    let weightedTrackingError = 0;
+    let weightedR2 = 0;
+
+    holdingsData.forEach(h => {
+      const weight = h.totalValue / totalValue;
+      const metrics = etfMetrics[h.symbol] || {};
+      
+      weightedAlpha += (metrics.alpha || 0) * weight;
+      weightedTrackingError += (metrics.trackingError || 0) * weight;
+      
+      const correlation = metrics.correlation || 0;
+      weightedR2 += (correlation * correlation) * weight;
+    });
+
+    const activeShareProxy = (1 - weightedR2) * 100;
+
+    return {
+      alpha: weightedAlpha,
+      trackingError: weightedTrackingError, // already a percentage from calculateTrackingError
+      activeShare: activeShareProxy
+    };
+  }, [holdingsData, etfMetrics]);
 
   return (
     <div className="space-y-8 pb-12">
@@ -79,7 +108,9 @@ export function BenchmarkComparison() {
           </div>
           <div>
             <div className="tech-label text-indigo-400">Regime Analysis</div>
-            <div className="text-[10px] text-terminal-muted font-mono font-bold uppercase">Alpha-Positive Environment</div>
+            <div className="text-[10px] text-terminal-muted font-mono font-bold uppercase">
+              {diagnosticMetrics.alpha >= 0 ? 'Alpha-Positive Environment' : 'Alpha-Negative Environment'}
+            </div>
           </div>
         </div>
         <div className="glass-panel p-4 flex items-center gap-4">
@@ -88,7 +119,9 @@ export function BenchmarkComparison() {
           </div>
           <div>
             <div className="tech-label text-emerald-400">Benchmark Tracking</div>
-            <div className="text-[10px] text-terminal-muted font-mono font-bold uppercase">Tracking Error: 1.2%</div>
+            <div className="text-[10px] text-terminal-muted font-mono font-bold uppercase">
+              Tracking Error: {diagnosticMetrics.trackingError.toFixed(1)}%
+            </div>
           </div>
         </div>
         <div className="glass-panel p-4 flex items-center gap-4">
@@ -97,7 +130,9 @@ export function BenchmarkComparison() {
           </div>
           <div>
             <div className="tech-label text-amber-400">High Conviction</div>
-            <div className="text-[10px] text-terminal-muted font-mono font-bold uppercase">Active Share: 68%</div>
+            <div className="text-[10px] text-terminal-muted font-mono font-bold uppercase">
+              Active Share: {diagnosticMetrics.activeShare.toFixed(0)}%
+            </div>
           </div>
         </div>
       </div>
@@ -126,6 +161,7 @@ export function BenchmarkComparison() {
               setSelectedBenchmark={setSelectedBenchmark}
               timeRange={timeRange}
               setTimeRange={setTimeRange}
+              onTabChange={onTabChange}
             />
           )}
         </div>

@@ -5,7 +5,7 @@ import { useData } from '../context/DataContext';
 import { Plus, Edit2, Save, Trash2 } from 'lucide-react';
 
 export function BenchmarkManager() {
-  const { benchmarks, updateData } = useData();
+  const { benchmarks, updateData, selectedBenchmark, setSelectedBenchmark } = useData();
   const [isEditing, setIsEditing] = useState(false);
   const [newBenchmark, setNewBenchmark] = useState({ id: '', name: '', expenseRatio: 0, marketCap: 0 });
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -17,7 +17,11 @@ export function BenchmarkManager() {
   };
 
   const handleRemove = (id: string) => {
-    updateData({ benchmarks: benchmarks.filter(b => b.id !== id) });
+    const newBenchmarks = benchmarks.filter(b => b.id !== id);
+    updateData({ benchmarks: newBenchmarks });
+    if (selectedBenchmark === id && newBenchmarks.length > 0) {
+      setSelectedBenchmark(newBenchmarks[0].id);
+    }
   };
 
   const handleUpdate = (id: string, updated: any) => {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { 
   LayoutDashboard, 
   List, 
@@ -14,6 +14,7 @@ import {
   Zap
 } from 'lucide-react';
 import { Button } from './ui/Button';
+import { useData } from '../context/DataContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -27,6 +28,8 @@ interface LayoutProps {
   totalValue: number;
   dailyChange: number;
   dailyChangePct: number;
+  overallChange: number;
+  overallChangePct: number;
 }
 
 export function Layout({ 
@@ -40,17 +43,35 @@ export function Layout({
   isAnalyzing,
   totalValue,
   dailyChange,
-  dailyChangePct
+  dailyChangePct,
+  overallChange,
+  overallChangePct
 }: LayoutProps) {
+  const { etfMetrics, selectedBenchmark } = useData();
+
   const tabs = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'holdings', label: 'Holdings', icon: List },
     { id: 'benchmark', label: 'Benchmark', icon: BarChart2 },
-    { id: 'analysis', label: 'Analysis', icon: Activity },
+    { id: 'analysis', label: 'Analysis & TCA', icon: Activity },
     { id: 'transactions', label: 'History', icon: History },
     { id: 'ai', label: 'Co-Pilot', icon: Bot },
     { id: 'help', label: 'Help', icon: HelpCircle },
   ];
+
+  const marketRegime = useMemo(() => {
+    const primaryBenchmark = selectedBenchmark || 'SPY';
+    const benchMetrics = etfMetrics[primaryBenchmark];
+    const bench1MReturn = benchMetrics?.return1M || 0;
+    
+    if (bench1MReturn > 1.5) {
+      return { text: "Risk-On / Bullish", textColor: "text-emerald-400", bgColor: "bg-emerald-400" };
+    } else if (bench1MReturn < -1.5) {
+      return { text: "Risk-Off / Bearish", textColor: "text-rose-400", bgColor: "bg-rose-400" };
+    } else {
+      return { text: "Neutral / Mixed", textColor: "text-amber-400", bgColor: "bg-amber-400" };
+    }
+  }, [etfMetrics, selectedBenchmark]);
 
   return (
     <div className="h-screen w-screen flex flex-col md:flex-row bg-terminal-bg text-terminal-text overflow-hidden font-sans">
@@ -109,18 +130,23 @@ export function Layout({
                 <span className="text-sm md:text-xl font-bold font-mono tracking-tight">
                   ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
-                <span className={`text-[10px] md:text-xs font-bold font-mono ${dailyChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {dailyChange >= 0 ? '+' : ''}{dailyChangePct.toFixed(2)}%
-                </span>
+                <div className="flex flex-col">
+                  <span className={`text-[10px] md:text-xs font-bold font-mono ${dailyChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`} title="Daily Change">
+                    {dailyChange >= 0 ? '+' : ''}{dailyChangePct.toFixed(2)}% (1D)
+                  </span>
+                  <span className={`text-[10px] md:text-xs font-bold font-mono ${overallChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`} title="Overall Change">
+                    {overallChange >= 0 ? '+' : ''}{overallChangePct.toFixed(2)}% (All)
+                  </span>
+                </div>
               </div>
             </div>
 
             <div className="hidden lg:flex items-center gap-8">
               <div className="flex flex-col">
                 <span className="tech-label">Market Regime</span>
-                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 uppercase tracking-tighter">
-                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Risk-On / Bullish
+                <span className={`text-xs font-bold ${marketRegime.textColor} flex items-center gap-1.5 uppercase tracking-tighter`}>
+                  <div className={`h-1.5 w-1.5 rounded-full ${marketRegime.bgColor} animate-pulse`} />
+                  {marketRegime.text}
                 </span>
               </div>
               <div className="flex flex-col">

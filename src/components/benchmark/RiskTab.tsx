@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui
 import { ScatterChart, Scatter, XAxis, YAxis, ZAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, Label } from 'recharts';
 import { Info, HelpCircle, ShieldCheck } from 'lucide-react';
 import { useData } from '../../context/DataContext';
-import { calculateReturns, calculateBeta, calculateCaptureRatios, calculateCorrelation, calculateSharpeRatio, calculateReturn1M } from '../../utils/financeMath';
+import { alignTimeSeries, calculateLogReturns, calculateBeta, calculateCaptureRatios, calculateCorrelation, calculateSharpeRatio, calculateReturn1M } from '../../utils/financeMath';
 import { InfoTooltip, MetricRow } from './shared';
 
 interface RiskTabProps {
@@ -79,13 +79,17 @@ export const RiskTab: React.FC<RiskTabProps> = ({
         const filteredETF = etfHistory.filter(d => new Date(d.date) >= startDate);
         const filteredBench = benchHistory.filter(d => new Date(d.date) >= startDate);
 
-        const alignedDates = filteredETF.map(d => d.date).filter(date => filteredBench.some(bd => bd.date === date));
-        const alignedETF = alignedDates.map(date => filteredETF.find(d => d.date === date)!.price);
-        const alignedBench = alignedDates.map(date => filteredBench.find(d => d.date === date)!.price);
+        const { alignedPrices } = alignTimeSeries(
+          { [h.symbol]: filteredETF, [selectedBenchmark]: filteredBench },
+          [h.symbol, selectedBenchmark]
+        );
+        
+        const alignedETF = alignedPrices[h.symbol];
+        const alignedBench = alignedPrices[selectedBenchmark];
 
         if (alignedETF.length > 5) {
-          const etfReturns = calculateReturns(alignedETF);
-          const benchReturns = calculateReturns(alignedBench);
+          const etfReturns = calculateLogReturns(alignedETF);
+          const benchReturns = calculateLogReturns(alignedBench);
           dynamicBeta = calculateBeta(etfReturns, benchReturns);
           dynamicReturn = ((alignedETF[alignedETF.length - 1] - alignedETF[0]) / alignedETF[0]) * 100;
           dynamicSharpe = calculateSharpeRatio(etfReturns, riskFreeRate);
@@ -133,6 +137,23 @@ export const RiskTab: React.FC<RiskTabProps> = ({
         matrix: {}
       };
 
+      const filteredData: Record<string, any[]> = {};
+      symbols.forEach(sym => {
+        if (allFetchedData[sym]) {
+          filteredData[sym] = allFetchedData[sym].filter(d => new Date(d.date) >= startDate);
+        }
+      });
+
+      const { alignedPrices } = alignTimeSeries(filteredData, symbols);
+
+      // Pre-calculate log returns for all symbols to avoid O(N^2) redundant calculations
+      const precalculatedReturns: Record<string, number[]> = {};
+      for (const sym of symbols) {
+        if (alignedPrices[sym] && alignedPrices[sym].length > 5) {
+          precalculatedReturns[sym] = calculateLogReturns(alignedPrices[sym]);
+        }
+      }
+
       for (const s1 of symbols) {
         dynamicMatrix.matrix[s1] = {};
         for (const s2 of symbols) {
@@ -141,25 +162,11 @@ export const RiskTab: React.FC<RiskTabProps> = ({
             continue;
           }
 
-          const history1 = allFetchedData[s1];
-          const history2 = allFetchedData[s2];
+          const returns1 = precalculatedReturns[s1];
+          const returns2 = precalculatedReturns[s2];
 
-          if (history1 && history2 && history1.length > 0 && history2.length > 0) {
-            // Filter both histories by the same startDate
-            const filtered1 = history1.filter(d => new Date(d.date) >= startDate);
-            const filtered2 = history2.filter(d => new Date(d.date) >= startDate);
-
-            const commonDates = filtered1
-              .map(d => d.date)
-              .filter(date => filtered2.some(d2 => d2.date === date));
-
-            if (commonDates.length > 5) {
-              const returns1 = calculateReturns(commonDates.map(date => filtered1.find(d => d.date === date)!.price));
-              const returns2 = calculateReturns(commonDates.map(date => filtered2.find(d => d.date === date)!.price));
-              dynamicMatrix.matrix[s1][s2] = calculateCorrelation(returns1, returns2);
-            } else {
-              dynamicMatrix.matrix[s1][s2] = contextCorrelationMatrix?.matrix?.[s1]?.[s2] ?? 0.5;
-            }
+          if (returns1 && returns2) {
+            dynamicMatrix.matrix[s1][s2] = calculateCorrelation(returns1, returns2);
           } else {
             dynamicMatrix.matrix[s1][s2] = contextCorrelationMatrix?.matrix?.[s1]?.[s2] ?? 0.5;
           }
@@ -171,8 +178,8 @@ export const RiskTab: React.FC<RiskTabProps> = ({
     // 3. Scenario Analysis (Calculated Portfolio Beta)
     const portValues = filteredPerformance.map(d => d.value);
     const benchValues = filteredPerformance.map(d => d[selectedBenchmark]);
-    const portReturns = calculateReturns(portValues);
-    const benchReturns = calculateReturns(benchValues);
+    const portReturns = calculateLogReturns(portValues);
+    const benchReturns = calculateLogReturns(benchValues);
     
     const pBeta = calculateBeta(portReturns, benchReturns);
     

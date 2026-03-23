@@ -2,31 +2,54 @@ import React, { useState } from 'react';
 import { Button } from './ui/Button';
 import { Plus, X } from 'lucide-react';
 import { useData } from '../context/DataContext';
+import { calculateHoldingsFromTransactions, Transaction, enrichTransactionWithTCA } from '../utils/portfolioMath';
 
 export function AddTransactionModal() {
   const [isOpen, setIsOpen] = useState(false);
-  const { transactionsData, updateData } = useData();
+  const { transactionsData, holdingsData, updateData, allFetchedData } = useData();
   
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [symbol, setSymbol] = useState('');
   const [type, setType] = useState('Buy');
   const [qty, setQty] = useState('');
   const [price, setPrice] = useState('');
+  const [executionType, setExecutionType] = useState('Stock: Buy at Market');
 
   const handleSave = () => {
     if (!symbol || !qty || !price || !date) return;
 
-    const newTx = {
+    const parsedQty = parseFloat(qty);
+    const parsedPrice = parseFloat(price);
+    const upperSymbol = symbol.toUpperCase();
+
+    let newTx: Transaction = {
       date: new Date(date).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' }),
-      symbol: symbol.toUpperCase(),
-      type,
-      qty: parseFloat(qty),
-      price: parseFloat(price),
-      total: parseFloat(price) * parseFloat(qty),
+      symbol: upperSymbol,
+      type: type as 'Buy' | 'Sell',
+      qty: parsedQty,
+      price: parsedPrice,
+      total: parsedPrice * parsedQty,
+      executionType: executionType
     };
 
+    // Enrich immediately if we have the historical data
+    if (allFetchedData && allFetchedData[upperSymbol]) {
+      newTx = enrichTransactionWithTCA(newTx, allFetchedData[upperSymbol]);
+    }
+
+    const newTransactions = [newTx, ...transactionsData];
+
+    // Extract current prices to maintain them during recalculation
+    const currentPrices: Record<string, number> = {};
+    holdingsData.forEach(h => {
+      currentPrices[h.symbol] = h.currentPrice;
+    });
+
+    const newHoldings = calculateHoldingsFromTransactions(newTransactions, holdingsData, currentPrices);
+
     updateData({
-      transactionsData: [newTx, ...transactionsData]
+      transactionsData: newTransactions,
+      holdingsData: newHoldings
     });
 
     setIsOpen(false);
@@ -109,6 +132,21 @@ export function AddTransactionModal() {
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     placeholder="0.00"
                   />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm font-medium text-slate-700">Execution Type</label>
+                  <select 
+                    value={executionType}
+                    onChange={(e) => setExecutionType(e.target.value)}
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="Stock: Buy at Market">Stock: Buy at Market</option>
+                    <option value="Stock: Sell at Market">Stock: Sell at Market</option>
+                    <option value="Stock: Buy at Market Open">Stock: Buy at Market Open</option>
+                    <option value="Stock: Sell at Market Open">Stock: Sell at Market Open</option>
+                    <option value="Stock: Buy at Market Close">Stock: Buy at Market Close</option>
+                    <option value="Stock: Sell at Market Close">Stock: Sell at Market Close</option>
+                  </select>
                 </div>
               </div>
               
