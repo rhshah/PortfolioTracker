@@ -122,6 +122,16 @@ export function Transactions({ onTabChange }: { onTabChange?: (tab: string) => v
             <tbody className="divide-y divide-white/5">
               {sortedTransactions.map((tx, index) => {
                 const isBuy = tx.type === 'Buy';
+                const isDeposit = tx.type === 'Deposit' || tx.type === 'Adjustment';
+                const isWithdrawal = tx.type === 'Withdrawal';
+                const isSell = tx.type === 'Sell';
+                
+                let typeColor = 'bg-slate-500/10 text-slate-400 border border-slate-500/20';
+                if (isBuy) typeColor = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+                if (isSell) typeColor = 'bg-rose-500/10 text-rose-400 border border-rose-500/20';
+                if (isDeposit) typeColor = 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20';
+                if (isWithdrawal) typeColor = 'bg-orange-500/10 text-orange-400 border border-orange-500/20';
+
                 return (
                   <tr key={index} className="hover:bg-white/[0.02] transition-colors group">
                     <td className="px-6 py-4 whitespace-nowrap text-xs font-mono text-terminal-muted">
@@ -129,8 +139,8 @@ export function Transactions({ onTabChange }: { onTabChange?: (tab: string) => v
                     </td>
                     <td className="px-6 py-4 font-bold font-mono text-indigo-400">
                       <span className="flex items-center gap-1 group-hover:text-indigo-300 transition-colors">
-                        {tx.symbol}
-                        {onTabChange && (
+                        {tx.symbol || '-'}
+                        {onTabChange && tx.symbol && tx.symbol !== 'CASH' && (
                           <button 
                             onClick={() => onTabChange('analysis')} 
                             className="text-terminal-muted hover:text-indigo-400 transition-colors focus:outline-none"
@@ -142,15 +152,15 @@ export function Transactions({ onTabChange }: { onTabChange?: (tab: string) => v
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest ${isBuy ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest ${typeColor}`}>
                         {tx.type}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right tech-value text-xs hidden sm:table-cell">
-                      {tx.qty.toLocaleString()}
+                      {tx.qty ? tx.qty.toLocaleString() : '-'}
                     </td>
                     <td className="px-6 py-4 text-right tech-value text-xs hidden md:table-cell">
-                      ${tx.price.toFixed(2)}
+                      {tx.price ? `$${tx.price.toFixed(2)}` : '-'}
                     </td>
                     <td className="px-6 py-4 text-right tech-value text-xs text-terminal-text">
                       ${tx.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

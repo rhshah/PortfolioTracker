@@ -99,30 +99,42 @@ export function Overview({ analysisSummary, isSyncing, onTabChange }: OverviewPr
 
   const healthScore = useMemo(() => {
     let score = 50;
-    if (sharpeRatio > 1.5) score += 30;
-    else if (sharpeRatio > 1) score += 20;
-    else if (sharpeRatio > 0.5) score += 10;
-    if (annualizedVol < 10) score += 10;
-    else if (annualizedVol > 30) score -= 10;
+    const safeSharpe = isNaN(sharpeRatio) ? 0 : sharpeRatio;
+    const safeVol = isNaN(annualizedVol) ? 0 : annualizedVol;
+    
+    if (safeSharpe > 1.5) score += 30;
+    else if (safeSharpe > 1) score += 20;
+    else if (safeSharpe > 0.5) score += 10;
+    
+    if (safeVol > 0 && safeVol < 10) score += 10;
+    else if (safeVol > 30) score -= 10;
+    
     const assetClasses = new Set(holdingsData.map(h => h.assetClass)).size;
     if (assetClasses >= 4) score += 10;
-    return Math.max(0, Math.min(score, 100));
+    
+    const finalScore = Math.max(0, Math.min(score, 100));
+    return isNaN(finalScore) ? 0 : finalScore;
   }, [sharpeRatio, annualizedVol, holdingsData]);
 
   const assetAllocation = useMemo(() => {
     const allocation: Record<string, number> = {};
+    let allocTotalValue = 0;
     holdingsData.forEach(h => {
-      allocation[h.assetClass] = (allocation[h.assetClass] || 0) + h.totalValue;
+      // Ignore negative holdings (e.g. short cash/margin) for pie chart, otherwise recharts crashes
+      if (h.totalValue > 0) {
+        allocation[h.assetClass] = (allocation[h.assetClass] || 0) + h.totalValue;
+        allocTotalValue += h.totalValue;
+      }
     });
     return Object.entries(allocation).map(([name, value]) => ({
       name,
-      value,
-      percentage: totalValue > 0 ? (value / totalValue) * 100 : 0
+      value: Math.max(0, value),
+      percentage: allocTotalValue > 0 ? (value / allocTotalValue) * 100 : 0
     })).sort((a, b) => b.value - a.value);
-  }, [holdingsData, totalValue]);
+  }, [holdingsData]);
 
-  const contributors = useMemo(() => [...holdingsData].sort((a, b) => b.totalGainLoss - a.totalGainLoss).slice(0, 3), [holdingsData]);
-  const detractors = useMemo(() => [...holdingsData].sort((a, b) => a.totalGainLoss - b.totalGainLoss).slice(0, 3), [holdingsData]);
+  const contributors = useMemo(() => [...holdingsData].filter(h => h.symbol !== 'CASH').sort((a, b) => b.totalGainLoss - a.totalGainLoss).slice(0, 3), [holdingsData]);
+  const detractors = useMemo(() => [...holdingsData].filter(h => h.symbol !== 'CASH').sort((a, b) => a.totalGainLoss - b.totalGainLoss).slice(0, 3), [holdingsData]);
 
   const filteredPerformanceData = useMemo(() => {
     const sortedData = [...performanceData].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());

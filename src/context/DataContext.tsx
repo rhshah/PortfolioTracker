@@ -9,7 +9,7 @@ import {
   transactionsData as initialTransactionsData
 } from '../data';
 
-import { Transaction } from '../utils/portfolioMath';
+import { Transaction, calculateHoldingsFromTransactions } from '../utils/portfolioMath';
 
 export interface Benchmark {
   id: string;
@@ -139,13 +139,34 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           });
         }
 
+        // Migration for missing cash deposit in existing local storage
+        let transactions = savedTransactions ? JSON.parse(savedTransactions) : initialTransactionsData;
+        if (!transactions.some((t: any) => t.type === 'Deposit')) {
+          transactions.unshift({ date: '2026-02-08', symbol: 'CASH', type: 'Deposit', qty: 1, price: 1000000, total: 1000000, commission: 0, slippageBps: 0, marketImpactBps: 0 });
+        }
+        
+        // Migration for VGT Split
+        let vgtTx = transactions.find((t: any) => t.symbol === 'VGT' && t.type === 'Buy' && t.qty === 65);
+        if (vgtTx) {
+          vgtTx.qty = 520;
+          vgtTx.price = 94.35625;
+          vgtTx.arrivalPrice = 94.25;
+          vgtTx.executionPrice = 94.35625;
+          vgtTx.vwap = 94.3125;
+          localStorage.setItem('v2_transactionsData', JSON.stringify(transactions));
+        }
+
+        // Always recalculate holdings on load to ensure cash math and other fixes apply
+        const currentPrices = holdings.reduce((acc: any, h: any) => ({ ...acc, [h.symbol]: h.currentPrice }), {});
+        holdings = calculateHoldingsFromTransactions(transactions, initialHoldingsData, currentPrices);
+
         setData({
           performanceData,
           benchmarks,
           metricsData: initialMetricsData,
           holdingsData: holdings,
           etfMetrics: etfMetrics,
-          transactionsData: savedTransactions ? JSON.parse(savedTransactions) : initialTransactionsData,
+          transactionsData: transactions,
           allFetchedData: savedAllFetchedData ? savedAllFetchedData : {},
           correlationMatrix: savedCorrelationMatrix ? savedCorrelationMatrix : { symbols: [], matrix: {} },
           riskFreeRate: savedRiskFreeRate ? parseFloat(savedRiskFreeRate) : 0.02,

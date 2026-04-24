@@ -2,10 +2,10 @@ import { Holding } from '../context/DataContext';
 
 export interface Transaction {
   date: string;
-  symbol: string;
-  type: 'Buy' | 'Sell';
-  qty: number;
-  price: number;
+  symbol?: string;
+  type: 'Buy' | 'Sell' | 'Deposit' | 'Withdrawal' | 'Adjustment';
+  qty?: number;
+  price?: number;
   total: number;
   executionType?: string;
   isTcaEstimated?: boolean;
@@ -102,6 +102,29 @@ export function enrichTransactionWithTCA(tx: Transaction, history: OHLCV[]): Tra
 }
 
 /**
+ * Calculates the current cash balance based on a ledger of transactions.
+ * @param transactions The full history of transactions.
+ * @returns The current cash balance.
+ */
+export function calculateCashBalance(transactions: Transaction[]): number {
+  return transactions.reduce((balance, tx) => {
+    switch (tx.type) {
+      case 'Deposit':
+      case 'Adjustment':
+        return balance + tx.total;
+      case 'Withdrawal':
+        return balance - tx.total;
+      case 'Buy':
+        return balance - tx.total;
+      case 'Sell':
+        return balance + tx.total;
+      default:
+        return balance;
+    }
+  }, 0);
+}
+
+/**
  * Calculates current holdings based on a ledger of transactions.
  * This is the core engine for Transaction Cost Analysis (TCA) and cost basis tracking.
  * It processes transactions chronologically to accurately determine realized and unrealized gains.
@@ -140,8 +163,25 @@ export function calculateHoldingsFromTransactions(
     return 0;
   });
 
+  let cashBalance = 0;
+
   sortedTxs.forEach(tx => {
+    // Handle cash balance
+    if (tx.type === 'Deposit' || tx.type === 'Adjustment') {
+      cashBalance += tx.total;
+      return; // No symbol processing needed for pure cash transactions
+    } else if (tx.type === 'Withdrawal') {
+      cashBalance -= tx.total;
+      return;
+    } else if (tx.type === 'Buy') {
+      cashBalance -= tx.total;
+    } else if (tx.type === 'Sell') {
+      cashBalance += tx.total;
+    }
+
     const sym = tx.symbol;
+    if (!sym) return;
+
     if (!holdingsMap.has(sym)) {
       // If we don't have metadata, create a default entry
       holdingsMap.set(sym, {
@@ -209,7 +249,7 @@ export function calculateHoldingsFromTransactions(
   });
 
   // Calculate current value and unrealized gain/loss
-  const activeHoldings = Array.from(holdingsMap.values()).filter((h: any) => h.qty > 0 || h.realizedGainLoss !== 0);
+  let activeHoldings = Array.from(holdingsMap.values()).filter((h: any) => h.qty > 0 || h.realizedGainLoss !== 0);
   
   activeHoldings.forEach((h: any) => {
     // If we have a current price passed in, use it, otherwise keep the one from metadata or last tx
@@ -219,6 +259,26 @@ export function calculateHoldingsFromTransactions(
     h.totalValue = h.qty * h.currentPrice;
     h.totalGainLoss = h.totalValue - (h.qty * h.purchasePrice);
   });
+
+  // Remove any existing CASH holding that might have been created by trades
+  activeHoldings = activeHoldings.filter((h: any) => h.symbol !== 'CASH');
+
+  if (cashBalance !== 0) {
+    activeHoldings.push({
+      symbol: 'CASH',
+      description: 'US Dollar',
+      assetClass: 'Cash',
+      benchmark: 'CASH',
+      currentPrice: 1,
+      purchasePrice: 1,
+      qty: cashBalance,
+      totalValue: cashBalance,
+      totalGainLoss: 0,
+      realizedGainLoss: 0,
+      expenseRatio: 0,
+      marketCap: 0
+    } as any);
+  }
 
   return activeHoldings;
 }

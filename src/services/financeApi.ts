@@ -221,12 +221,17 @@ export async function syncRealData(currentHoldings: Holding[], transactionsData:
     let dailyPortfolioValue = 0;
     
     for (const holding of newHoldingsData) {
+      if (holding.symbol === 'CASH') {
+        dailyPortfolioValue += holding.qty * 1;
+        continue;
+      }
       const price = priceMaps[holding.symbol]?.get(date);
       if (price !== undefined) {
         lastKnownPrices[holding.symbol] = price;
       }
       
-      dailyPortfolioValue += lastKnownPrices[holding.symbol] * holding.qty;
+      const lastKnown = lastKnownPrices[holding.symbol] || 0;
+      dailyPortfolioValue += lastKnown * holding.qty;
     }
     
     if (i === chartStartIndex) {

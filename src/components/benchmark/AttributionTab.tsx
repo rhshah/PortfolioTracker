@@ -127,19 +127,32 @@ export const AttributionTab: React.FC<AttributionTabProps> = ({
     }));
 
     // 2. Portfolio Construction (Asset Class Allocation vs Benchmark)
-    const benchAlloc: Record<string, number> = selectedBenchmark === 'SPY' 
-      ? { 'US Equity': 100, 'Intl Equity': 0, 'Fixed Income': 0, 'Real Estate': 0, 'Cash': 0, 'Commodities': 0 }
-      : { 'US Equity': 0, 'Intl Equity': 0, 'Fixed Income': 100, 'Real Estate': 0, 'Cash': 0, 'Commodities': 0 };
+    let benchAlloc: Record<string, number> = { 'US Equity': 0, 'Intl Equity': 0, 'Fixed Income': 0, 'Real Estate': 0, 'Cash': 0, 'Commodities': 0 };
+    if (selectedBenchmark === 'SPY') {
+      benchAlloc['US Equity'] = 100;
+    } else if (selectedBenchmark === 'AOR') {
+      benchAlloc['US Equity'] = 35;
+      benchAlloc['Intl Equity'] = 25;
+      benchAlloc['Fixed Income'] = 40;
+    } else {
+      benchAlloc['Fixed Income'] = 100; // Default for BND or others
+    }
 
     const assetClassMap = holdingsData.reduce((acc: any, h) => {
-      acc[h.assetClass] = (acc[h.assetClass] || 0) + (h.qty * h.currentPrice);
+      // Avoid negative totals breaking PieCharts
+      if (h.qty * h.currentPrice > 0) {
+        acc[h.assetClass] = (acc[h.assetClass] || 0) + (h.qty * h.currentPrice);
+      }
       return acc;
     }, {});
 
-    const totalValue = Object.values(assetClassMap).reduce((a: any, b: any) => a + b, 0) as number;
+    const totalValue = Object.values(assetClassMap).reduce((a: any, b: any) => a + Math.max(0, b), 0) as number;
     
-    const construction = Object.entries(assetClassMap).map(([name, value], index) => {
-      const portWeight = ((value as number) / totalValue) * 100;
+    const allAssetClasses = Array.from(new Set([...Object.keys(assetClassMap), ...Object.keys(benchAlloc)]));
+    
+    const construction = allAssetClasses.map((name, index) => {
+      const portValue = Math.max(0, assetClassMap[name] || 0);
+      const portWeight = totalValue > 0 ? (portValue / totalValue) * 100 : 0;
       const benchWeight = benchAlloc[name] || 0;
       return {
         name,
@@ -148,7 +161,7 @@ export const AttributionTab: React.FC<AttributionTabProps> = ({
         active: portWeight - benchWeight,
         color: COLORS[index % COLORS.length]
       };
-    }).sort((a, b) => b.value - a.value);
+    }).filter(c => c.value > 0 || c.benchmark > 0).sort((a, b) => b.value - a.value);
 
     // 3. Dumbbell Data (ETF vs Benchmark 1M Return) - DYNAMIC
     const dumbbell = holdingsData.map(h => {

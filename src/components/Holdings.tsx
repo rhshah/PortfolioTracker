@@ -125,7 +125,7 @@ export function Holdings({ onTabChange }: { onTabChange?: (tab: string) => void 
                       <div className="flex flex-col gap-1">
                         <span className="text-sm font-bold font-mono text-indigo-400 group-hover:text-indigo-300 transition-colors flex items-center gap-1">
                           {holding.symbol}
-                          {onTabChange && (
+                          {onTabChange && holding.symbol !== 'CASH' && (
                             <button 
                               onClick={() => onTabChange('analysis')} 
                               className="text-terminal-muted hover:text-indigo-400 transition-colors focus:outline-none"
@@ -161,37 +161,55 @@ export function Holdings({ onTabChange }: { onTabChange?: (tab: string) => void 
                       <span className="tech-value text-xs">{holding.expenseRatio ? `${holding.expenseRatio.toFixed(2)}%` : '—'}</span>
                     </td>
                     <td className="px-4 py-5 align-top text-right hidden sm:table-cell">
-                      <span className="tech-value text-xs">{holding.qty.toLocaleString()}</span>
+                      <span className="tech-value text-xs">
+                        {holding.symbol === 'CASH' ? '—' : holding.qty.toLocaleString()}
+                      </span>
                     </td>
                     <td className="px-4 py-5 align-top text-right hidden lg:table-cell">
                       <div className="flex flex-col items-end">
-                        <span className="tech-value text-xs">${holding.currentPrice.toFixed(2)}</span>
-                        <span className="text-[8px] font-mono text-terminal-muted">Basis: ${holding.purchasePrice.toFixed(2)}</span>
+                        <span className="tech-value text-xs">
+                          {holding.symbol === 'CASH' ? '—' : `$${holding.currentPrice.toFixed(2)}`}
+                        </span>
+                        {holding.symbol !== 'CASH' && (
+                          <span className="text-[8px] font-mono text-terminal-muted">Basis: ${holding.purchasePrice.toFixed(2)}</span>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-5 align-top text-right">
                       <span className="tech-value text-xs font-bold">${holding.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </td>
                     <td className="px-4 py-5 align-top text-right">
-                      <div className={`flex flex-col items-end ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        <div className="flex items-center gap-1 font-mono font-bold text-xs">
-                          {isPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                          ${Math.abs(holding.totalGainLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {holding.symbol === 'CASH' ? (
+                        <span className="tech-value text-xs text-terminal-muted">—</span>
+                      ) : (
+                        <div className={`flex flex-col items-end ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          <div className="flex items-center gap-1 font-mono font-bold text-xs">
+                            {isPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                            ${Math.abs(holding.totalGainLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </div>
+                          <span className="text-[8px] font-mono opacity-70">
+                            {((holding.totalGainLoss / (holding.totalValue - holding.totalGainLoss)) * 100).toFixed(2)}%
+                          </span>
                         </div>
-                        <span className="text-[8px] font-mono opacity-70">
-                          {((holding.totalGainLoss / (holding.totalValue - holding.totalGainLoss)) * 100).toFixed(2)}%
+                      )}
+                    </td>
+                    <td className="px-4 py-5 align-top text-right hidden xl:table-cell">
+                      {holding.symbol === 'CASH' ? (
+                        <span className="tech-value text-xs text-terminal-muted">—</span>
+                      ) : (
+                        <span className={`tech-value text-xs ${(holding.tcaSlippage || 0) < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                          ${(holding.tcaSlippage || 0).toFixed(2)}
                         </span>
-                      </div>
+                      )}
                     </td>
                     <td className="px-4 py-5 align-top text-right hidden xl:table-cell">
-                      <span className={`tech-value text-xs ${(holding.tcaSlippage || 0) < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                        ${(holding.tcaSlippage || 0).toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-5 align-top text-right hidden xl:table-cell">
-                      <span className={`tech-value text-xs ${(holding.tcaImpact || 0) < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                        ${(holding.tcaImpact || 0).toFixed(2)}
-                      </span>
+                      {holding.symbol === 'CASH' ? (
+                        <span className="tech-value text-xs text-terminal-muted">—</span>
+                      ) : (
+                        <span className={`tech-value text-xs ${(holding.tcaImpact || 0) < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                          ${(holding.tcaImpact || 0).toFixed(2)}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 );

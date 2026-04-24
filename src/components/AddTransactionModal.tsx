@@ -16,24 +16,26 @@ export function AddTransactionModal() {
   const [executionType, setExecutionType] = useState('Stock: Buy at Market');
 
   const handleSave = () => {
-    if (!symbol || !qty || !price || !date) return;
+    if (!date) return;
+    if ((type === 'Buy' || type === 'Sell') && (!symbol || !qty || !price)) return;
+    if ((type === 'Deposit' || type === 'Withdrawal' || type === 'Adjustment') && !price) return; // Using price as the amount
 
-    const parsedQty = parseFloat(qty);
+    const parsedQty = qty ? parseFloat(qty) : undefined;
     const parsedPrice = parseFloat(price);
-    const upperSymbol = symbol.toUpperCase();
+    const upperSymbol = symbol ? symbol.toUpperCase() : 'CASH';
 
     let newTx: Transaction = {
       date: new Date(date).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' }),
       symbol: upperSymbol,
-      type: type as 'Buy' | 'Sell',
+      type: type as any,
       qty: parsedQty,
-      price: parsedPrice,
-      total: parsedPrice * parsedQty,
+      price: type === 'Buy' || type === 'Sell' ? parsedPrice : undefined,
+      total: type === 'Buy' || type === 'Sell' ? parsedPrice * (parsedQty || 0) : parsedPrice,
       executionType: executionType
     };
 
     // Enrich immediately if we have the historical data
-    if (allFetchedData && allFetchedData[upperSymbol]) {
+    if (allFetchedData && allFetchedData[upperSymbol] && (type === 'Buy' || type === 'Sell')) {
       newTx = enrichTransactionWithTCA(newTx, allFetchedData[upperSymbol]);
     }
 
@@ -89,16 +91,18 @@ export function AddTransactionModal() {
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Symbol</label>
-                  <input 
-                    type="text" 
-                    value={symbol}
-                    onChange={(e) => setSymbol(e.target.value)}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    placeholder="e.g. AAPL"
-                  />
-                </div>
+                {(type === 'Buy' || type === 'Sell') && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Symbol</label>
+                    <input 
+                      type="text" 
+                      value={symbol}
+                      onChange={(e) => setSymbol(e.target.value)}
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      placeholder="e.g. AAPL"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-3 gap-4">
@@ -111,20 +115,27 @@ export function AddTransactionModal() {
                   >
                     <option value="Buy">Buy</option>
                     <option value="Sell">Sell</option>
+                    <option value="Deposit">Deposit</option>
+                    <option value="Withdrawal">Withdrawal</option>
+                    <option value="Adjustment">Adjustment</option>
                   </select>
                 </div>
+                {(type === 'Buy' || type === 'Sell') && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Quantity</label>
+                    <input 
+                      type="number" 
+                      value={qty}
+                      onChange={(e) => setQty(e.target.value)}
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      placeholder="0"
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Quantity</label>
-                  <input 
-                    type="number" 
-                    value={qty}
-                    onChange={(e) => setQty(e.target.value)}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    placeholder="0"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Price</label>
+                  <label className="text-sm font-medium text-slate-700">
+                    {type === 'Buy' || type === 'Sell' ? 'Price' : 'Amount'}
+                  </label>
                   <input 
                     type="number" 
                     value={price}
@@ -133,21 +144,23 @@ export function AddTransactionModal() {
                     placeholder="0.00"
                   />
                 </div>
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-sm font-medium text-slate-700">Execution Type</label>
-                  <select 
-                    value={executionType}
-                    onChange={(e) => setExecutionType(e.target.value)}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  >
-                    <option value="Stock: Buy at Market">Stock: Buy at Market</option>
-                    <option value="Stock: Sell at Market">Stock: Sell at Market</option>
-                    <option value="Stock: Buy at Market Open">Stock: Buy at Market Open</option>
-                    <option value="Stock: Sell at Market Open">Stock: Sell at Market Open</option>
-                    <option value="Stock: Buy at Market Close">Stock: Buy at Market Close</option>
-                    <option value="Stock: Sell at Market Close">Stock: Sell at Market Close</option>
-                  </select>
-                </div>
+                {(type === 'Buy' || type === 'Sell') && (
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm font-medium text-slate-700">Execution Type</label>
+                    <select 
+                      value={executionType}
+                      onChange={(e) => setExecutionType(e.target.value)}
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    >
+                      <option value="Stock: Buy at Market">Stock: Buy at Market</option>
+                      <option value="Stock: Sell at Market">Stock: Sell at Market</option>
+                      <option value="Stock: Buy at Market Open">Stock: Buy at Market Open</option>
+                      <option value="Stock: Sell at Market Open">Stock: Sell at Market Open</option>
+                      <option value="Stock: Buy at Market Close">Stock: Buy at Market Close</option>
+                      <option value="Stock: Sell at Market Close">Stock: Sell at Market Close</option>
+                    </select>
+                  </div>
+                )}
               </div>
               
               <div className="pt-4 flex justify-end gap-3">
