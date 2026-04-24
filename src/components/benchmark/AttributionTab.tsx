@@ -293,27 +293,34 @@ export const AttributionTab: React.FC<AttributionTabProps> = ({
           <h3 className="text-sm font-mono font-bold text-terminal-text uppercase tracking-widest">Analysis Parameters</h3>
           <p className="text-[10px] text-terminal-muted uppercase tracking-widest font-bold">Configure your attribution view</p>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center bg-white/5 rounded-xl p-1 border border-white/10">
-            {['1M', '3M', 'YTD', '1Y', 'ALL'].map((range) => (
-              <button
-                key={range}
-                onClick={() => setTimeRange(range)}
-                className={`px-4 py-1.5 text-[10px] font-mono font-bold rounded-lg transition-all ${timeRange === range ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-terminal-muted hover:text-terminal-text'}`}
-              >
-                {range}
-              </button>
-            ))}
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center bg-white/5 rounded-xl p-1 border border-white/10">
+              {['1M', '3M', 'YTD', '1Y', 'ALL'].map((range) => (
+                <button
+                  key={range}
+                  onClick={() => setTimeRange(range)}
+                  className={`px-4 py-1.5 text-[10px] font-mono font-bold rounded-lg transition-all ${timeRange === range ? 'bg-indigo-600 shadow-lg shadow-indigo-500/20 text-white' : 'text-terminal-muted hover:text-terminal-text'}`}
+                >
+                  {range}
+                </button>
+              ))}
+            </div>
+            <select
+              value={selectedBenchmark}
+              onChange={(e) => setSelectedBenchmark(e.target.value)}
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-1.5 text-[10px] font-mono font-bold text-terminal-text shadow-sm focus:ring-2 focus:ring-indigo-500/20 outline-none appearance-none cursor-pointer hover:bg-white/10 transition-colors"
+            >
+              {benchmarks.map((b) => (
+                <option key={b.id} value={b.id} className="bg-slate-900">{b.name}</option>
+              ))}
+            </select>
           </div>
-          <select
-            value={selectedBenchmark}
-            onChange={(e) => setSelectedBenchmark(e.target.value)}
-            className="rounded-xl border border-white/10 bg-white/5 px-4 py-1.5 text-[10px] font-mono font-bold text-terminal-text shadow-sm focus:ring-2 focus:ring-indigo-500/20 outline-none appearance-none cursor-pointer hover:bg-white/10 transition-colors"
-          >
-            {benchmarks.map((b) => (
-              <option key={b.id} value={b.id} className="bg-slate-900">{b.name}</option>
-            ))}
-          </select>
+          {formattedPerformanceData.length > 0 && (
+            <p className="text-[9px] text-terminal-muted font-mono bg-white/5 px-2 py-1 rounded border border-white/5">
+              Metrics represent timeframe: <span className="text-indigo-400 font-bold">{new Date(formattedPerformanceData[0].date).toLocaleDateString()}</span> to <span className="text-indigo-400 font-bold">{new Date(formattedPerformanceData[formattedPerformanceData.length - 1].date).toLocaleDateString()}</span>
+            </p>
+          )}
         </div>
       </div>
 

@@ -137,21 +137,58 @@ export async function syncRealData(currentHoldings: Holding[], transactionsData:
     const benchHistory = fetchedData[holding.benchmark];
     
     if (etfHistory && benchHistory && etfHistory.length > 0 && benchHistory.length > 0) {
+      // Get the first transaction date for this holding, or fallback to the overall first transaction
+      const holdingTransactions = enrichedTransactions.filter(t => t.symbol === holding.symbol);
+      const firstTxDate = holdingTransactions.length > 0 
+        ? new Date(Math.min(...holdingTransactions.map(t => new Date(t.date).getTime())))
+        : (enrichedTransactions.length > 0 ? new Date(Math.min(...enrichedTransactions.map(t => new Date(t.date).getTime()))) : null);
+
       // 1. Align data for primary metrics (Asset vs Benchmark)
-      const { alignedPrices: primaryAligned } = alignTimeSeries(fetchedData, [holding.symbol, holding.benchmark]);
-      const etfPrices = primaryAligned[holding.symbol].slice(-252);
-      const benchPrices = primaryAligned[holding.benchmark].slice(-252);
+      const { alignedPrices: primaryAligned, dates: primaryDates } = alignTimeSeries(fetchedData, [holding.symbol, holding.benchmark]);
+      
+      // Find the index of the first transaction date in the aligned timeline
+      let startIndex = 0;
+      if (firstTxDate && primaryDates) {
+        const txDateStr = firstTxDate.toISOString().split('T')[0];
+        const txIndex = primaryDates.findIndex((d: string) => d >= txDateStr);
+        if (txIndex !== -1) startIndex = txIndex;
+        // Require at least 20 days of data for meaningful metrics, otherwise use last 1 year (252 days)
+        if (primaryDates.length - startIndex < 20) {
+           startIndex = Math.max(0, primaryDates.length - 252);
+        }
+      } else {
+        startIndex = Math.max(0, primaryDates.length - 252); // Fallback to 1 Year
+      }
+
+      const etfPrices = primaryAligned[holding.symbol].slice(startIndex);
+      const benchPrices = primaryAligned[holding.benchmark].slice(startIndex);
+      const actualDays = etfPrices.length;
+      const actualStart = primaryDates[startIndex];
+      const actualEnd = primaryDates[primaryDates.length - 1];
       
       const etfReturns = calculateLogReturns(etfPrices);
       const benchReturns = calculateLogReturns(benchPrices);
       const beta = calculateBeta(etfReturns, benchReturns);
 
       // 2. Align data for factor metrics (Asset vs SPY, VTV, IWM)
-      const { alignedPrices: factorAligned } = alignTimeSeries(fetchedData, [holding.symbol, 'SPY', 'VTV', 'IWM']);
-      const etfFactorPrices = factorAligned[holding.symbol].slice(-252);
-      const spyPrices = factorAligned['SPY'].slice(-252);
-      const valuePrices = factorAligned['VTV'].slice(-252);
-      const sizePrices = factorAligned['IWM'].slice(-252);
+      const { alignedPrices: factorAligned, dates: factorDates } = alignTimeSeries(fetchedData, [holding.symbol, 'SPY', 'VTV', 'IWM']);
+      
+      let factorStartIndex = 0;
+      if (firstTxDate && factorDates) {
+        const txDateStr = firstTxDate.toISOString().split('T')[0];
+        const txIndex = factorDates.findIndex((d: string) => d >= txDateStr);
+        if (txIndex !== -1) factorStartIndex = txIndex;
+        if (factorDates.length - factorStartIndex < 20) {
+           factorStartIndex = Math.max(0, factorDates.length - 252);
+        }
+      } else {
+        factorStartIndex = Math.max(0, factorDates.length - 252);
+      }
+
+      const etfFactorPrices = factorAligned[holding.symbol].slice(factorStartIndex);
+      const spyPrices = factorAligned['SPY'].slice(factorStartIndex);
+      const valuePrices = factorAligned['VTV'].slice(factorStartIndex);
+      const sizePrices = factorAligned['IWM'].slice(factorStartIndex);
 
       const etfFactorReturns = calculateLogReturns(etfFactorPrices);
       const spyReturns = calculateLogReturns(spyPrices);
@@ -166,6 +203,9 @@ export async function syncRealData(currentHoldings: Holding[], transactionsData:
       
       newEtfMetrics[holding.symbol] = {
         ...existingMetrics,
+        timeframeStart: actualStart,
+        timeframeEnd: actualEnd,
+        daysCalculated: actualDays,
         return1M: calculateReturn1M(etfPrices),
         benchReturn1M: calculateReturn1M(benchPrices),
         volatility: calculateVolatility(etfReturns),

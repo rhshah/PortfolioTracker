@@ -119,22 +119,31 @@ export function Holdings({ onTabChange }: { onTabChange?: (tab: string) => void 
                 const totalPortfolioValue = holdingsData.reduce((sum, h) => sum + h.totalValue, 0);
                 const allocationPct = (holding.totalValue / totalPortfolioValue) * 100;
                 
+                const satelliteSymbols = ['VGT', 'SCHY', 'REIT', 'SLV', 'XFIV', 'TXXI', 'PCMM'];
+                const bucketRole = satelliteSymbols.includes(holding.symbol) ? 'Satellite' : (holding.symbol === 'CASH' ? 'Cash' : 'Core');
+                const bucketColor = bucketRole === 'Satellite' ? 'text-amber-400 border-amber-400/20 bg-amber-400/10' : (bucketRole === 'Core' ? 'text-emerald-400 border-emerald-400/20 bg-emerald-400/10' : 'text-gray-400 border-gray-400/20 bg-gray-400/10');
+                
                 return (
                   <tr key={holding.symbol} className="hover:bg-white/[0.02] transition-colors group">
                     <td className="px-4 py-5 align-top">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-sm font-bold font-mono text-indigo-400 group-hover:text-indigo-300 transition-colors flex items-center gap-1">
-                          {holding.symbol}
-                          {onTabChange && holding.symbol !== 'CASH' && (
-                            <button 
-                              onClick={() => onTabChange('analysis')} 
-                              className="text-terminal-muted hover:text-indigo-400 transition-colors focus:outline-none"
-                              title="View Analysis"
-                            >
-                              <ArrowUpRight className="h-3 w-3" />
-                            </button>
-                          )}
-                        </span>
+                      <div className="flex flex-col gap-1 items-start">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold font-mono text-indigo-400 group-hover:text-indigo-300 transition-colors flex items-center gap-1">
+                            {holding.symbol}
+                            {onTabChange && holding.symbol !== 'CASH' && (
+                              <button 
+                                onClick={() => onTabChange('analysis')} 
+                                className="text-terminal-muted hover:text-indigo-400 transition-colors focus:outline-none"
+                                title="View Analysis"
+                              >
+                                <ArrowUpRight className="h-3 w-3" />
+                              </button>
+                            )}
+                          </span>
+                          <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded border ${bucketColor} uppercase tracking-tighter`}>
+                            {bucketRole}
+                          </span>
+                        </div>
                         <span className="text-[10px] font-mono uppercase text-terminal-muted tracking-tighter">{holding.assetClass}</span>
                       </div>
                     </td>

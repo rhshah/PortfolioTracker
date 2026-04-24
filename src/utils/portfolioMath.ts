@@ -164,8 +164,10 @@ export function calculateHoldingsFromTransactions(
   });
 
   let cashBalance = 0;
+  console.log(`[portfolioMath] Starting trace for ${sortedTxs.length} chronological transactions.`);
 
   sortedTxs.forEach(tx => {
+    const previousCash = cashBalance;
     // Handle cash balance
     if (tx.type === 'Deposit' || tx.type === 'Adjustment') {
       cashBalance += tx.total;
@@ -174,9 +176,16 @@ export function calculateHoldingsFromTransactions(
       cashBalance -= tx.total;
       return;
     } else if (tx.type === 'Buy') {
-      cashBalance -= tx.total;
+      cashBalance -= (tx.total + (tx.commission || 0));
     } else if (tx.type === 'Sell') {
+      cashBalance += (tx.total - (tx.commission || 0));
+    } else if (tx.type === 'Dividend') {
       cashBalance += tx.total;
+      // Continue processing if the dividend is associated with a specific symbol
+    }
+
+    if (cashBalance !== previousCash) {
+      console.log(`[portfolioMath] Cash updated: ${tx.type} | Symbol: ${tx.symbol || 'N/A'} | Delta: ${cashBalance - previousCash} | New Bal: ${cashBalance}`);
     }
 
     const sym = tx.symbol;

@@ -16,6 +16,7 @@ type SyncState = 'idle' | 'fetching' | 'analyzing';
 export function Dashboard() {
   const { holdingsData, transactionsData, performanceData, etfMetrics, updateData, benchmarks, clearCache, correlationMatrix, riskFreeRate } = useData();
   const [syncState, setSyncState] = useState<SyncState>('idle');
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   
   const [lastSynced, setLastSynced] = useState<Date | null>(() => {
@@ -105,7 +106,9 @@ export function Dashboard() {
   }, []);
 
   // Performance Calculations for HUD
-  const totalValue = useMemo(() => holdingsData.reduce((sum, item) => sum + item.totalValue, 0), [holdingsData]);
+  const accountValue = useMemo(() => holdingsData.reduce((sum, item) => sum + item.totalValue, 0), [holdingsData]);
+  const cashBalance = useMemo(() => holdingsData.find(h => h.symbol === 'CASH')?.totalValue || 0, [holdingsData]);
+  const totalValue = accountValue - cashBalance; // holdings only
   
   const dailyStats = useMemo(() => {
     if (performanceData.length < 2) return { change: 0, changePct: 0 };
@@ -118,15 +121,21 @@ export function Dashboard() {
 
   const overallStats = useMemo(() => {
     const totalCostBasis = holdingsData.reduce((sum, item) => sum + (item.qty * item.purchasePrice), 0);
-    const change = totalValue - totalCostBasis;
+    const change = accountValue - totalCostBasis;
     const changePct = totalCostBasis > 0 ? (change / totalCostBasis) * 100 : 0;
     return { change, changePct };
-  }, [holdingsData, totalValue]);
+  }, [holdingsData, accountValue]);
 
   const handleSyncMarketData = async (currentHoldings = holdingsData) => {
+    console.log(`[Dashboard] Initiating syncMarketData. Current holdings: ${currentHoldings.length}`);
+    const syncStartTime = performance.now();
     setSyncState('fetching');
+    setSyncError(null);
     try {
       const { newHoldingsData, newPerformanceData, newEtfMetrics, allFetchedData, riskFreeRate, correlationMatrix, enrichedTransactionsData } = await syncRealData(currentHoldings, transactionsData, etfMetrics, benchmarks);
+      
+      console.log(`[Dashboard] syncRealData completed in ${(performance.now() - syncStartTime).toFixed(0)}ms. Updating context.`);
+      
       updateData({
         holdingsData: newHoldingsData,
         performanceData: newPerformanceData,
@@ -138,9 +147,11 @@ export function Dashboard() {
       });
       setLastSynced(new Date());
       setSyncCount(prev => prev + 1);
+      console.log(`[Dashboard] Context updated successfully. New holdings: ${newHoldingsData.length}`);
       return newHoldingsData;
-    } catch (error) {
-      console.error('Error fetching market data:', error);
+    } catch (error: any) {
+      console.error('[Dashboard] Critical error fetching market data:', error);
+      setSyncError(`Sync failed: ${error.message || 'Unknown error. Check console for details.'}`);
       return null;
     } finally {
       setSyncState('idle');
@@ -157,8 +168,19 @@ export function Dashboard() {
       const prompt = `
 You are a Senior Portfolio Manager and Risk Strategist at a top-tier hedge fund. Your task is to provide a BRUTALLY HONEST, institutional-grade analysis of the following ETF portfolio. 
 
+### CRITICAL STRATEGIC FRAMEWORK (2026 Decoupling Economy):
+You must evaluate this portfolio through the lens of a modernized "60/40 Portfolio" adapted for a "Decoupling Economy" in 2026 (persistent inflation above 3%, resilient US GDP >2.2%, agentic AI productivity gains, and a cautious Fed easing cycle). 
+The ideal implementation uses an **80/20 Core-Satellite structure**:
+- **Core (80%)**: Broad-market, low-cost vehicles capturing market beta (e.g., VTI, BND, VXUS, VNQ, GLTR).
+- **Satellite (20%)**: Tactical allocations responding to specific 2026 macro signals:
+  1. The Warsh Fed Pivot & Yield Curve Steepening (e.g., XFIV for 5-Year duration tilt).
+  2. The AI Infrastructure "Gigawatt Ceiling" (e.g., VGT).
+  3. Private Credit & Floating-Rate Resilience (e.g., PCMM).
+  4. Rare Metals Basket & Silver Catch-Up (e.g., SLV).
+Assess if the portfolio strictly maintains this 80% Core / 20% Satellite discipline.
+
 ### CRITICAL INSTRUCTIONS:
-1. **NO SUGAR COATING**: If an asset is a "laggard" or a "yield trap," say it. If the diversification is an illusion, highlight the "hidden concentration."
+1. **NO SUGAR COATING**: If an asset is a "laggard" or a "yield trap," say it. Did the investor drift past the 5% threshold? Highlight it.
 2. **GROUNDED RESEARCH**: Use the Google Search tool to find news from the LAST 14 DAYS regarding macro and sector headwinds.
 3. **STRICT CITATIONS**: Every macro/micro claim MUST be followed by a citation in the format: [Source Name, Date].
 4. **CORRELATION ANALYSIS**: Use the provided Correlation Matrix to identify "Cluster Risk."
@@ -175,16 +197,16 @@ You are a Senior Portfolio Manager and Risk Strategist at a top-tier hedge fund.
 - **Risk-Free Rate**: ${(riskFreeRate * 100).toFixed(2)}%
 
 ### REQUIRED OUTPUT STRUCTURE (Markdown):
-1. **Executive Summary (The "Bottom Line")**: Start with a "Portfolio Health Score" (0-100).
-2. **The "Bear Case" (Stress Test)**: What causes a double-digit drawdown?
-3. **Asset-Level Autopsy**: Performance Attribution (Alpha vs Beta).
+1. **Executive Summary (The "Bottom Line")**: Start with a "Portfolio Health Score" (0-100) and summarize adherence to the 80/20 Core-Satellite discipline. Include a clear note on the timeframe assessed (e.g., "Metrics represent timeframe: [Start Date] - [End Date]").
+2. **The "Bear Case" (Stress Test)**: What causes a double-digit drawdown in this decoupling economy?
+3. **Asset-Level Autopsy**: Performance Attribution (Alpha vs Beta, Core vs Satellite).
 4. **Correlation & Cluster Risk**: Identify "fake diversifiers."
-5. **Actionable Rebalancing (The "Trade Desk")**: Specific % adjustments.
+5. **Actionable Rebalancing (The "Trade Desk")**: Specific % adjustments using the 5% drift threshold rule.
 
 Return a JSON object:
 {
   "report": "Your full detailed markdown analysis here...",
-  "descriptions": { "SYMBOL": "Concise professional description" },
+  "descriptions": { "SYMBOL": "Concise professional description referencing its role in the 80/20 framework" },
   "benchmarkDescriptions": { "BENCHMARK": "Concise professional description" }
 }
 `;
@@ -280,7 +302,9 @@ ${reportText}`;
       onSync={() => handleSyncMarketData()}
       onAnalyze={() => handleGenerateAnalysis()}
       isAnalyzing={isAnalyzing}
-      totalValue={totalValue}
+      syncError={syncError}
+      totalValue={accountValue} // Retaining totalValue prop but passing accountValue instead to avoid refactoring Layout everywhere
+      cashBalance={cashBalance}
       dailyChange={dailyStats.change}
       dailyChangePct={dailyStats.changePct}
       overallChange={overallStats.change}

@@ -64,30 +64,84 @@ export function Overview({ analysisSummary, isSyncing, onTabChange }: OverviewPr
   const totalValue = holdingsData.reduce((sum, item) => sum + item.totalValue, 0);
   const totalGainLossSinceInception = holdingsData.reduce((sum, item) => sum + item.totalGainLoss, 0);
   
-  // Calculate Annualized Volatility
-  const annualizedVol = useMemo(() => {
-    if (performanceData.length < 5) return 0;
-    const returns = [];
-    for (let i = 1; i < performanceData.length; i++) {
-      const r = (performanceData[i].value / performanceData[i-1].value) - 1;
-      returns.push(r);
-    }
-    const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
-    const variance = returns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / returns.length;
-    const dailyVol = Math.sqrt(variance);
-    return dailyVol * Math.sqrt(252) * 100;
-  }, [performanceData]);
+  const filteredPerformanceData = useMemo(() => {
+    const sortedData = [...performanceData].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    if (sortedData.length === 0) return [];
 
-  // Calculate Annualized Return for Sharpe
-  const annualizedReturn = useMemo(() => {
-    if (performanceData.length < 5) return 0;
-    const first = performanceData[0].value;
-    const last = performanceData[performanceData.length - 1].value;
-    const days = (new Date(performanceData[performanceData.length - 1].date).getTime() - new Date(performanceData[0].date).getTime()) / (1000 * 60 * 60 * 24);
-    if (days < 1) return 0;
-    const totalReturn = (last / first) - 1;
-    return (Math.pow(1 + totalReturn, 365 / days) - 1) * 100;
-  }, [performanceData]);
+    const latestDate = new Date(sortedData[sortedData.length - 1].date);
+    let startDate = new Date(sortedData[0].date);
+
+    if (timeRange === '1M') {
+      startDate = new Date(latestDate);
+      startDate.setUTCMonth(startDate.getUTCMonth() - 1);
+    } else if (timeRange === '3M') {
+      startDate = new Date(latestDate);
+      startDate.setUTCMonth(startDate.getUTCMonth() - 3);
+    } else if (timeRange === 'YTD') {
+      startDate = new Date(Date.UTC(latestDate.getUTCFullYear(), 0, 1));
+    } else if (timeRange === '1Y') {
+      startDate = new Date(latestDate);
+      startDate.setUTCFullYear(startDate.getUTCFullYear() - 1);
+    } else if (timeRange === 'ALL' && firstTransactionDate) {
+      startDate = new Date(firstTransactionDate);
+    }
+
+    startDate.setUTCHours(0, 0, 0, 0);
+    const filtered = sortedData.filter(d => new Date(d.date) >= startDate);
+    if (filtered.length === 0) return [];
+
+    const portfolioStartValue = filtered[0].value;
+    return filtered.map(d => ({
+      ...d,
+      displayDate: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      Portfolio: portfolioStartValue > 0 ? ((d.value / portfolioStartValue) - 1) * 100 : 0,
+      [selectedBenchmark]: filtered[0][selectedBenchmark] > 0 ? ((d[selectedBenchmark] / filtered[0][selectedBenchmark]) - 1) * 100 : 0
+    }));
+  }, [timeRange, performanceData, selectedBenchmark, firstTransactionDate]);
+
+  const { maxDrawdown, annualizedVol, annualizedReturn } = useMemo(() => {
+    let vol = 0;
+    let ret = 0;
+    let mdd = 0;
+
+    if (filteredPerformanceData.length >= 5) {
+      const returns = [];
+      let peak = filteredPerformanceData[0].value;
+      
+      for (let i = 1; i < filteredPerformanceData.length; i++) {
+        const current = filteredPerformanceData[i].value;
+        const prev = filteredPerformanceData[i-1].value;
+        if (prev > 0) {
+          returns.push((current / prev) - 1);
+        }
+        
+        if (current > peak) {
+          peak = current;
+        }
+        const dd = (current - peak) / peak;
+        if (dd < mdd) {
+          mdd = dd;
+        }
+      }
+
+      if (returns.length > 0) {
+        const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+        const variance = returns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / returns.length;
+        vol = Math.sqrt(variance) * Math.sqrt(252) * 100;
+      }
+
+      const first = filteredPerformanceData[0].value;
+      const last = filteredPerformanceData[filteredPerformanceData.length - 1].value;
+      const days = (new Date(filteredPerformanceData[filteredPerformanceData.length - 1].date).getTime() - new Date(filteredPerformanceData[0].date).getTime()) / (1000 * 60 * 60 * 24);
+      
+      if (days >= 1 && first > 0) {
+        const totalReturn = (last / first) - 1;
+        ret = (Math.pow(1 + totalReturn, 365 / days) - 1) * 100;
+      }
+    }
+    
+    return { annualizedVol: vol, annualizedReturn: ret, maxDrawdown: mdd * 100 };
+  }, [filteredPerformanceData]);
 
   const sharpeRatio = useMemo(() => {
     const vol = annualizedVol / 100;
@@ -133,43 +187,35 @@ export function Overview({ analysisSummary, isSyncing, onTabChange }: OverviewPr
     })).sort((a, b) => b.value - a.value);
   }, [holdingsData]);
 
+  const coreSatelliteBreakdown = useMemo(() => {
+    const satelliteSymbols = ['VGT', 'SCHY', 'REIT', 'SLV', 'XFIV', 'TXXI', 'PCMM'];
+    let core = 0;
+    let satellite = 0;
+    let cash = 0;
+    let total = 0;
+    
+    holdingsData.forEach(h => {
+      if (h.totalValue > 0) {
+        if (h.symbol === 'CASH') {
+          cash += h.totalValue;
+        } else if (satelliteSymbols.includes(h.symbol)) {
+          satellite += h.totalValue;
+        } else {
+          core += h.totalValue;
+        }
+        total += h.totalValue;
+      }
+    });
+    
+    return {
+      core: total > 0 ? (core / total) * 100 : 0,
+      satellite: total > 0 ? (satellite / total) * 100 : 0,
+      cash: total > 0 ? (cash / total) * 100 : 0,
+    };
+  }, [holdingsData]);
+
   const contributors = useMemo(() => [...holdingsData].filter(h => h.symbol !== 'CASH').sort((a, b) => b.totalGainLoss - a.totalGainLoss).slice(0, 3), [holdingsData]);
   const detractors = useMemo(() => [...holdingsData].filter(h => h.symbol !== 'CASH').sort((a, b) => a.totalGainLoss - b.totalGainLoss).slice(0, 3), [holdingsData]);
-
-  const filteredPerformanceData = useMemo(() => {
-    const sortedData = [...performanceData].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    if (sortedData.length === 0) return [];
-
-    const latestDate = new Date(sortedData[sortedData.length - 1].date);
-    let startDate = new Date(sortedData[0].date);
-
-    if (timeRange === '1M') {
-      startDate = new Date(latestDate);
-      startDate.setUTCMonth(startDate.getUTCMonth() - 1);
-    } else if (timeRange === '3M') {
-      startDate = new Date(latestDate);
-      startDate.setUTCMonth(startDate.getUTCMonth() - 3);
-    } else if (timeRange === 'YTD') {
-      startDate = new Date(Date.UTC(latestDate.getUTCFullYear(), 0, 1));
-    } else if (timeRange === '1Y') {
-      startDate = new Date(latestDate);
-      startDate.setUTCFullYear(startDate.getUTCFullYear() - 1);
-    } else if (timeRange === 'ALL' && firstTransactionDate) {
-      startDate = new Date(firstTransactionDate);
-    }
-
-    startDate.setUTCHours(0, 0, 0, 0);
-    const filtered = sortedData.filter(d => new Date(d.date) >= startDate);
-    if (filtered.length === 0) return [];
-
-    const portfolioStartValue = filtered[0].value;
-    return filtered.map(d => ({
-      ...d,
-      displayDate: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      Portfolio: portfolioStartValue > 0 ? ((d.value / portfolioStartValue) - 1) * 100 : 0,
-      [selectedBenchmark]: filtered[0][selectedBenchmark] > 0 ? ((d[selectedBenchmark] / filtered[0][selectedBenchmark]) - 1) * 100 : 0
-    }));
-  }, [timeRange, performanceData, selectedBenchmark]);
 
   const isHypothetical = useMemo(() => {
     if (!firstTransactionDate || filteredPerformanceData.length === 0) return false;
@@ -375,13 +421,20 @@ export function Overview({ analysisSummary, isSyncing, onTabChange }: OverviewPr
             <div className="flex items-center justify-between mb-6">
               <div>
                 <div className="tech-label mb-1">Risk Assessment</div>
-                <h3 
-                  className="text-xl font-bold font-display tracking-tight flex items-center gap-2 cursor-pointer hover:text-indigo-400 transition-colors group"
-                  onClick={() => onTabChange('benchmark')}
-                >
-                  Portfolio Health
-                  <ArrowUpRight className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-all" />
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 
+                    className="text-xl font-bold font-display tracking-tight flex items-center gap-2 cursor-pointer hover:text-indigo-400 transition-colors group"
+                    onClick={() => onTabChange('benchmark')}
+                  >
+                    Portfolio Health
+                    <ArrowUpRight className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-all" />
+                  </h3>
+                </div>
+                {filteredPerformanceData.length > 0 && (
+                  <p className="text-[9px] text-terminal-muted font-mono mt-1">
+                    Metrics based on period: {filteredPerformanceData[0].displayDate} - {filteredPerformanceData[filteredPerformanceData.length - 1].displayDate}
+                  </p>
+                )}
               </div>
               <Button 
                 variant="ghost" 
@@ -454,7 +507,7 @@ export function Overview({ analysisSummary, isSyncing, onTabChange }: OverviewPr
                     lookFor="Smaller (less negative) is better."
                   />
                 </div>
-                <span className="tech-value text-rose-400">-3.2%</span>
+                <span className={`tech-value ${maxDrawdown < -5 ? 'text-rose-400' : 'text-terminal-text'}`}>{maxDrawdown.toFixed(1)}%</span>
               </div>
             </div>
           </div>
@@ -536,6 +589,25 @@ export function Overview({ analysisSummary, isSyncing, onTabChange }: OverviewPr
                 <span className="text-[10px] font-mono font-bold">{item.percentage.toFixed(1)}%</span>
               </div>
             ))}
+          </div>
+          
+          <div className="mt-8 pt-4 border-t border-white/10">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-mono text-terminal-muted group-hover:text-terminal-text transition-colors uppercase">Core-Satellite Implementation</span>
+            </div>
+            
+            <div className="h-4 w-full bg-slate-800 rounded-sm overflow-hidden flex gap-0.5">
+              <div className="h-full bg-emerald-500" style={{ width: `${coreSatelliteBreakdown.core}%` }} title={`Core: ${coreSatelliteBreakdown.core.toFixed(1)}%`} />
+              <div className="h-full bg-amber-500" style={{ width: `${coreSatelliteBreakdown.satellite}%` }} title={`Satellite: ${coreSatelliteBreakdown.satellite.toFixed(1)}%`} />
+              {coreSatelliteBreakdown.cash > 0 && (
+                <div className="h-full bg-slate-400" style={{ width: `${coreSatelliteBreakdown.cash}%` }} title={`Cash: ${coreSatelliteBreakdown.cash.toFixed(1)}%`} />
+              )}
+            </div>
+            <div className="flex justify-between mt-1 text-[9px] font-mono uppercase">
+              <span className="text-emerald-400 font-bold">{coreSatelliteBreakdown.core.toFixed(1)}% Core (80% Tgt)</span>
+               {coreSatelliteBreakdown.cash > 0 && <span className="text-slate-400 font-bold">{coreSatelliteBreakdown.cash.toFixed(1)}% Cash</span>}
+              <span className="text-amber-400 font-bold">{coreSatelliteBreakdown.satellite.toFixed(1)}% Sat (20% Tgt)</span>
+            </div>
           </div>
         </div>
 
@@ -672,12 +744,14 @@ export function Overview({ analysisSummary, isSyncing, onTabChange }: OverviewPr
             
             <div className="space-y-6">
               <div className="p-4 bg-indigo-600/10 rounded-xl border border-indigo-500/20 shadow-[inset_0_0_10px_rgba(99,102,241,0.1)]">
-                <div className="tech-label text-indigo-400 mb-2">Key Takeaway</div>
+                <div className="tech-label text-indigo-400 mb-2">Framework Status</div>
                 <p className="text-xs text-terminal-text leading-relaxed font-medium font-mono">
-                  Portfolio is currently <span className="text-indigo-400">{sharpeRatio > 1 ? 'Efficient' : 'Beta-Heavy'}</span>. 
-                  {sharpeRatio > 1 
-                    ? " Risk-adjusted returns are strong, but monitor concentration in top contributors."
-                    : " High sensitivity to market movements without proportional excess return."}
+                  Core Allocation is currently <span className="text-indigo-400">{coreSatelliteBreakdown.core.toFixed(1)}%</span>. 
+                  {coreSatelliteBreakdown.core > 85 
+                    ? " Portfolio may be undermonitizing tactical macro signals."
+                    : coreSatelliteBreakdown.core < 75 
+                    ? " Substantial drift detected. Rebalance Satellites to restore beta anchor."
+                    : " Portfolio is highly disciplined within the 80/20 Decoupling framework."}
                 </p>
               </div>
               <div className="p-4 bg-white/5 rounded-xl border border-white/10">
@@ -685,11 +759,11 @@ export function Overview({ analysisSummary, isSyncing, onTabChange }: OverviewPr
                 <ul className="text-[10px] text-terminal-muted space-y-2 font-mono">
                   <li className="flex items-start gap-2">
                     <div className="h-1 w-1 rounded-full bg-indigo-500 mt-1.5" />
-                    Review {contributors[0]?.symbol} position for profit-taking.
+                    Review Satellite drift against the 5% warning threshold.
                   </li>
                   <li className="flex items-start gap-2">
                     <div className="h-1 w-1 rounded-full bg-indigo-500 mt-1.5" />
-                    Analyze correlation matrix for diversification gaps.
+                    Direct {contributors[0]?.symbol} yield into underweighted allocations.
                   </li>
                 </ul>
               </div>

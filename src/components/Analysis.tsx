@@ -138,7 +138,7 @@ export function Analysis({ report, isAnalyzing, onTabChange }: AnalysisProps) {
             </div>
             <h3 className="text-2xl font-bold font-display text-terminal-text tracking-tight mb-3">No Analysis Generated</h3>
             <p className="max-w-md text-xs text-terminal-muted font-mono leading-relaxed mb-10">
-              Initiate a comprehensive diagnostic to synthesize your portfolio data with current market conditions and institutional-grade risk logic.
+              Initiate a comprehensive diagnostic to synthesize your portfolio against the "Decoupling Economy" framework. Our AI evaluates your asset allocation using a disciplined 80/20 Core-Satellite methodology.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-3xl">
               {[

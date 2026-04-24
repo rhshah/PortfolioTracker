@@ -489,8 +489,13 @@ export const DeepDiveTab: React.FC<DeepDiveTabProps> = ({
                 <div>
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-1 h-3 bg-indigo-500 rounded-full" />
-                    <h4 className="text-[10px] font-bold text-white uppercase tracking-[0.2em]">Fundamentals</h4>
+                    <h4 className="text-[10px] font-bold text-white uppercase tracking-[0.2em]">Fundamentals & Metrics window</h4>
                   </div>
+                  {etfMetrics[selectedETF!] && (
+                    <div className="mb-3 text-[9px] text-terminal-muted font-mono bg-white/5 p-2 rounded-lg border border-white/5">
+                      Metrics analyzed from: <span className="text-indigo-400 font-bold">{etfMetrics[selectedETF!].timeframeStart || 'N/A'}</span> to <span className="text-indigo-400 font-bold">{etfMetrics[selectedETF!].timeframeEnd || 'N/A'}</span> ({etfMetrics[selectedETF!].daysCalculated || 0} trading days)
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
                       <p className="text-[9px] font-bold text-slate-500 uppercase mb-1">P/E Ratio</p>

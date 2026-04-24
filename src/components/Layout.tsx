@@ -25,7 +25,9 @@ interface LayoutProps {
   onSync: () => void;
   onAnalyze: () => void;
   isAnalyzing: boolean;
+  syncError?: string | null;
   totalValue: number;
+  cashBalance?: number;
   dailyChange: number;
   dailyChangePct: number;
   overallChange: number;
@@ -41,7 +43,9 @@ export function Layout({
   onSync,
   onAnalyze,
   isAnalyzing,
+  syncError,
   totalValue,
+  cashBalance = 0,
   dailyChange,
   dailyChangePct,
   overallChange,
@@ -125,7 +129,7 @@ export function Layout({
         <header className="h-16 border-b border-terminal-border bg-terminal-card/20 backdrop-blur-md flex items-center justify-between px-4 md:px-8 z-40">
           <div className="flex items-center gap-4 md:gap-12">
             <div className="flex flex-col">
-              <span className="tech-label">Portfolio Value</span>
+              <span className="tech-label">Account Value</span>
               <div className="flex items-center gap-2 md:gap-3">
                 <span className="text-sm md:text-xl font-bold font-mono tracking-tight">
                   ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -134,11 +138,18 @@ export function Layout({
                   <span className={`text-[10px] md:text-xs font-bold font-mono ${dailyChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`} title="Daily Change">
                     {dailyChange >= 0 ? '+' : ''}{dailyChangePct.toFixed(2)}% (1D)
                   </span>
-                  <span className={`text-[10px] md:text-xs font-bold font-mono ${overallChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`} title="Overall Change">
-                    {overallChange >= 0 ? '+' : ''}{overallChangePct.toFixed(2)}% (All)
+                  <span className={`text-[10px] md:text-xs font-bold font-mono ${overallChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`} title="Lifetime Return (Since First Transaction)">
+                    {overallChange >= 0 ? '+' : ''}{overallChangePct.toFixed(2)}% (Lifetime)
                   </span>
                 </div>
               </div>
+            </div>
+
+            <div className="hidden lg:flex flex-col ml-4">
+              <span className="tech-label">Cash / Buying Power</span>
+              <span className="text-sm font-bold font-mono text-slate-400 tracking-tight">
+                ${cashBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
             </div>
 
             <div className="hidden lg:flex items-center gap-8">
@@ -193,6 +204,15 @@ export function Layout({
             </div>
           </div>
         </header>
+
+        {syncError && (
+          <div className="bg-rose-500/10 border-b border-rose-500/20 px-4 md:px-8 py-2 text-rose-400 text-xs font-mono flex items-center justify-between z-30 relative">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+              {syncError}
+            </div>
+          </div>
+        )}
 
         {/* Viewport Container */}
         <main className="flex-1 overflow-hidden relative">

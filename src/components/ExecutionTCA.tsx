@@ -149,6 +149,11 @@ export function ExecutionTCA({ onTabChange }: { onTabChange?: (tab: string) => v
           </div>
         </div>
       </div>
+      
+      <p className="text-[10px] text-terminal-muted font-mono bg-white/5 p-2 rounded-lg border border-white/5 inline-block mt-4">
+        <Info className="h-3 w-3 inline mr-1 text-indigo-400" />
+        TCA assumes arrival prices represent the opening benchmark price on the date of execution. Execution metrics are compared to intraday VWAP approximations.
+      </p>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

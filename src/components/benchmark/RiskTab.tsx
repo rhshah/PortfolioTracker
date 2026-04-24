@@ -238,27 +238,56 @@ export const RiskTab: React.FC<RiskTabProps> = ({
           <div className="tech-label text-indigo-400 mb-1">Risk Parameters</div>
           <p className="text-[10px] text-terminal-muted uppercase tracking-widest font-bold">Adjust risk analysis window</p>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center bg-white/5 rounded-lg p-1 border border-white/5">
-            {['1M', '3M', 'YTD', '1Y', 'ALL'].map((range) => (
-              <button
-                key={range}
-                onClick={() => setTimeRange(range)}
-                className={`px-4 py-1.5 text-[10px] font-bold rounded-md transition-all uppercase tracking-wider ${timeRange === range ? 'bg-indigo-600 text-white shadow-lg' : 'text-terminal-muted hover:text-terminal-text'}`}
-              >
-                {range}
-              </button>
-            ))}
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center bg-white/5 rounded-lg p-1 border border-white/5">
+              {['1M', '3M', 'YTD', '1Y', 'ALL'].map((range) => (
+                <button
+                  key={range}
+                  onClick={() => setTimeRange(range)}
+                  className={`px-4 py-1.5 text-[10px] font-bold rounded-md transition-all uppercase tracking-wider ${timeRange === range ? 'bg-indigo-600 text-white shadow-lg' : 'text-terminal-muted hover:text-terminal-text'}`}
+                >
+                  {range}
+                </button>
+              ))}
+            </div>
+            <select
+              value={selectedBenchmark}
+              onChange={(e) => setSelectedBenchmark(e.target.value)}
+              className="rounded-lg border border-white/10 bg-white/5 px-4 py-1.5 text-[10px] font-bold text-terminal-text shadow-sm focus:ring-2 focus:ring-indigo-500/20 outline-none uppercase tracking-wider"
+            >
+              {benchmarks.map((b) => (
+                <option key={b.id} value={b.id} className="bg-[#0B0E14]">{b.name}</option>
+              ))}
+            </select>
           </div>
-          <select
-            value={selectedBenchmark}
-            onChange={(e) => setSelectedBenchmark(e.target.value)}
-            className="rounded-lg border border-white/10 bg-white/5 px-4 py-1.5 text-[10px] font-bold text-terminal-text shadow-sm focus:ring-2 focus:ring-indigo-500/20 outline-none uppercase tracking-wider"
-          >
-            {benchmarks.map((b) => (
-              <option key={b.id} value={b.id} className="bg-[#0B0E14]">{b.name}</option>
-            ))}
-          </select>
+          {performanceData.length > 0 && (() => {
+            const sortedData = [...performanceData].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            const latestDate = new Date(sortedData[sortedData.length - 1].date);
+            let startDate = new Date(sortedData[0].date);
+            if (timeRange === '1M') {
+              startDate = new Date(latestDate);
+              startDate.setUTCMonth(startDate.getUTCMonth() - 1);
+            } else if (timeRange === '3M') {
+              startDate = new Date(latestDate);
+              startDate.setUTCMonth(startDate.getUTCMonth() - 3);
+            } else if (timeRange === 'YTD') {
+              startDate = new Date(Date.UTC(latestDate.getUTCFullYear(), 0, 1));
+            } else if (timeRange === '1Y') {
+              startDate = new Date(latestDate);
+              startDate.setUTCFullYear(startDate.getUTCFullYear() - 1);
+            }
+            if (inceptionDate && startDate < inceptionDate && timeRange === 'ALL') startDate = inceptionDate;
+            startDate.setUTCHours(0, 0, 0, 0);
+            
+            const filtered = sortedData.filter(d => new Date(d.date) >= startDate);
+            if (filtered.length === 0) return null;
+            return (
+              <p className="text-[9px] text-terminal-muted font-mono bg-white/5 px-2 py-1 rounded border border-white/5">
+                Metrics represent timeframe: <span className="text-indigo-400 font-bold">{new Date(filtered[0].date).toLocaleDateString()}</span> to <span className="text-indigo-400 font-bold">{new Date(filtered[filtered.length - 1].date).toLocaleDateString()}</span>
+              </p>
+            );
+          })()}
         </div>
       </div>
 
